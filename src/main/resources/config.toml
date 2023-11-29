@@ -1,0 +1,37 @@
+[pterodactyl]
+apiUrl = ""
+apiKey = ""
+allocationAliasPrefix = "dynamic-"
+
+[locale]
+invalidHostname = "Invalid hostname"
+failedToConnect = "Connection to the main server could not be established"
+noServerAvailable = "No server available"
+
+[groups]
+    [groups.tlrpg]
+    fromHostname = "play.thelierpg.com"
+    serverName = "tlrpg"
+    maxInstance = 5
+    playerAmountToCreateInstance = 20
+    [groups.survival]
+    fromHostname = "survival.onyxium.net"
+    serverName = "survival"
+    maxInstance = 5
+    playerAmountToCreateInstance = 20
+
+[templates]
+    [templates.tlrpg]
+    serverOnlineDelay = 5
+    nameTemplate = "TLRPG Node %d"
+    description = "Multi-Paper Worker %d"
+    dockerImage = "ghcr.io/pterodactyl/yolks:java_17"
+    locationId = 1
+    nestId = 1
+    eggId = 1
+    defaultOwnerId = 1
+    cpuAmount = 200
+    ramAmount = 512
+    diskAmount = 512
+        [templates.tlrpg.environmentValues]
+        SERVER_JARFILE = "server.jar"
