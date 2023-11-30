@@ -35,5 +35,6 @@ noServerAvailable = "No server available"
     cpuAmount = 200
     ramAmount = 512
     diskAmount = 512
+    skipInitScript = true
         [templates.tlrpg.environmentValues]
         SERVER_JARFILE = "server.jar"
