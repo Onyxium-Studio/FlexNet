@@ -21,7 +21,6 @@ public class FlexNetGroup {
     private int maxInstance;
     @Getter
     private int playerAmountToCreateInstance;
-    private RegisteredServer defaultServer;
 
     @Builder.Default
     private transient HashMap<String, RegisteredServer> serverMap = new HashMap<>();
@@ -48,8 +47,8 @@ public class FlexNetGroup {
 
     public RegisteredServer randomPickServer() {
         // if(serverMap.isEmpty()) throw new IllegalStateException("No server is registered in serverMap");
-        int playerCount = defaultServer.getPlayersConnected().size();
-        RegisteredServer server = defaultServer;
+        int playerCount = -1;
+        RegisteredServer server = null;
         // pick the server with lowest player count
         for(RegisteredServer s : serverMap.values()) {
             if(playerCount == -1 || s.getPlayersConnected().size() <= playerCount) {
