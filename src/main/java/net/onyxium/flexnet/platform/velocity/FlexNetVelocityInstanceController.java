@@ -12,8 +12,6 @@ import net.onyxium.flexnet.platform.FlexNetProxy;
 import net.onyxium.flexnet.platform.velocity.event.FlexNetVelocityPlayerForwardedEvent;
 import net.onyxium.flexnet.util.TaskUtils;
 
-import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.HashSet;
 
 @Slf4j
@@ -48,6 +46,8 @@ public class FlexNetVelocityInstanceController {
     private void createServerCleanupTask() {
         proxy.scheduleRepeatTask(() -> {
             groupManager.getAllGroups()
+                    .stream()
+                    .filter(group -> group.getServerAmount() > 1)
                     .forEach(group -> {
                         HashSet<String> pendingDeleteIds = new HashSet<>();
                         group.getAllServers()

@@ -45,6 +45,10 @@ public class FlexNetGroup {
         return serverMap.entrySet();
     }
 
+    public int getServerAmount() {
+        return serverMap.size();
+    }
+
     public RegisteredServer randomPickServer() {
         // if(serverMap.isEmpty()) throw new IllegalStateException("No server is registered in serverMap");
         int playerCount = -1;
