@@ -24,7 +24,6 @@ import java.net.InetSocketAddress;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.time.temporal.ChronoUnit;
-import java.time.temporal.TemporalUnit;
 import java.util.function.Supplier;
 
 @Plugin(
@@ -42,6 +41,7 @@ public class FlexNetVelocityPlugin implements FlexNetProxy {
     private final Supplier<FlexNetConfig> configSupplier = Suppliers.memoize(this::getConfig);
 
     private InstanceManager instanceManager;
+    private FlexNetVelocityInstanceController instanceController;
     private FlexNetGroupManager groupManager;
 
     @Inject
@@ -57,13 +57,13 @@ public class FlexNetVelocityPlugin implements FlexNetProxy {
 
         FlexNetConfig config = configSupplier.get(); // init config
 
-        instanceManager = new PterodactylInstanceManager(config.getPterodactyl(), this);
+        this.instanceManager = new PterodactylInstanceManager(config.getPterodactyl(), this);
         this.groupManager = new FlexNetGroupManager(config);
+        this.instanceController = new FlexNetVelocityInstanceController(this, groupManager, instanceManager, config);
 
         proxyServer.getEventManager().register(this,
                 new FlexNetVelocityPlayerForwarder(proxyServer, groupManager, config, proxyServer));
-        proxyServer.getEventManager().register(this,
-                new FlexNetVelocityInstanceController(this, groupManager, instanceManager, config));
+        proxyServer.getEventManager().register(this, instanceController);
     }
 
     /**
@@ -81,14 +81,12 @@ public class FlexNetVelocityPlugin implements FlexNetProxy {
         return new Toml().read(file).to(FlexNetConfig.class);
     }
 
-    // Not used for now
     @Override
     public void addServer(String identifier, InetSocketAddress address, FlexNetGroup group) {
         RegisteredServer server = proxyServer.registerServer(new ServerInfo(identifier, address));
         group.addServer(identifier, server);
     }
 
-    // Not used for now
     @Override
     public void removeServer(String identifier, FlexNetGroup group) {
         proxyServer.getServer(identifier).ifPresent(server -> proxyServer.unregisterServer(server.getServerInfo()));

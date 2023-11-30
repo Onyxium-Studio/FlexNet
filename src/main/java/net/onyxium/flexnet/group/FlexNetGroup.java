@@ -4,8 +4,7 @@ import com.velocitypowered.api.proxy.server.RegisteredServer;
 import lombok.Builder;
 import lombok.Getter;
 
-import java.util.HashMap;
-import java.util.Random;
+import java.util.*;
 
 @Builder
 public class FlexNetGroup {
@@ -22,7 +21,9 @@ public class FlexNetGroup {
     private int maxInstance;
     @Getter
     private int playerAmountToCreateInstance;
+    private RegisteredServer defaultServer;
 
+    @Builder.Default
     private transient HashMap<String, RegisteredServer> serverMap = new HashMap<>();
 
     public void addServer(String id, RegisteredServer server) {
@@ -41,10 +42,14 @@ public class FlexNetGroup {
         return serverMap.containsKey(id);
     }
 
+    public Set<Map.Entry<String, RegisteredServer>> getAllServers() {
+        return serverMap.entrySet();
+    }
+
     public RegisteredServer randomPickServer() {
-        if(serverMap.isEmpty()) throw new IllegalStateException("No server is registered in serverMap");
-        int playerCount = -1;
-        RegisteredServer server = null;
+        // if(serverMap.isEmpty()) throw new IllegalStateException("No server is registered in serverMap");
+        int playerCount = defaultServer.getPlayersConnected().size();
+        RegisteredServer server = defaultServer;
         // pick the server with lowest player count
         for(RegisteredServer s : serverMap.values()) {
             if(playerCount == -1 || s.getPlayersConnected().size() <= playerCount) {
@@ -60,6 +65,6 @@ public class FlexNetGroup {
     }
 
     public boolean canConnect() {
-        return serverMap.size() > 0;
+        return !serverMap.isEmpty();
     }
 }

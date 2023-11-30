@@ -8,4 +8,5 @@ public class SingleGroupConfig {
     private String serverName;
     private int maxInstance;
     private int playerAmountToCreateInstance;
+    private String defaultServer;
 }

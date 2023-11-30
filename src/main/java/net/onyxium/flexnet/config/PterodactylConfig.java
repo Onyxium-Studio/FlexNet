@@ -6,5 +6,6 @@ import lombok.Data;
 public class PterodactylConfig {
     private String apiUrl;
     private String apiKey;
+    private String clientApiKey;
     private String allocationAliasPrefix;
 }

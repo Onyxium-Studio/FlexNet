@@ -14,17 +14,19 @@ noServerAvailable = "No server available"
     serverName = "tlrpg"
     maxInstance = 5
     playerAmountToCreateInstance = 20
+    defaultServer = "tlrpg"
     [groups.survival]
     fromHostname = "survival.onyxium.net"
     serverName = "survival"
     maxInstance = 5
     playerAmountToCreateInstance = 20
+    defaultServer = "survival"
 
 [templates]
     [templates.tlrpg]
     serverOnlineDelay = 5
-    nameTemplate = "TLRPG Node %d"
-    description = "Multi-Paper Worker %d"
+    nameTemplate = "[FlexNet] TLRPG Node"
+    description = "Multi-Paper Worker"
     dockerImage = "ghcr.io/pterodactyl/yolks:java_17"
     locationId = 1
     nestId = 1
