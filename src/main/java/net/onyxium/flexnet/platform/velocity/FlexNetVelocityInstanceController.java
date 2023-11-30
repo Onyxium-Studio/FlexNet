@@ -61,7 +61,7 @@ public class FlexNetVelocityInstanceController {
                             instanceManager.deleteInstance(id, (b) -> {});
                         });
                     });
-        }, 0L, 60L);
+        }, 0L, 300L);
     }
 
     private void createServerOnInit() {
