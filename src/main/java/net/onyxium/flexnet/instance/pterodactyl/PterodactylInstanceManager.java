@@ -71,7 +71,7 @@ public class PterodactylInstanceManager implements InstanceManager {
                         .setCPU(template.getCpuAmount())
                         .setMemory(template.getMemoryAmount(), DataType.MB)
                         .setDisk(template.getDiskAmount(), DataType.MB)
-                        .startOnCompletion(true)
+                        .skipScripts(template.isSkipInitScript())
                         .execute();
 
                 watcher.createTask(

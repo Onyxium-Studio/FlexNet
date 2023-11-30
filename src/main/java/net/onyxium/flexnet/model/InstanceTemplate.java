@@ -17,5 +17,6 @@ public class InstanceTemplate {
     private long cpuAmount;
     private long memoryAmount;
     private long diskAmount;
+    private boolean skipInitScript;
     private Map<String, Object> environmentValues;
 }
