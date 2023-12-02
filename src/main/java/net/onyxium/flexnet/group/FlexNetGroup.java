@@ -3,6 +3,7 @@ package net.onyxium.flexnet.group;
 import com.velocitypowered.api.proxy.server.RegisteredServer;
 import lombok.Builder;
 import lombok.Getter;
+import net.onyxium.flexnet.instance.InstanceRestarter;
 
 import java.util.*;
 
@@ -21,6 +22,12 @@ public class FlexNetGroup {
     private int maxInstance;
     @Getter
     private int playerAmountToCreateInstance;
+    @Getter
+    private int autoRestartInterval;
+    @Getter
+    private int[] restartWarningIntervals;
+    @Getter
+    private int postShutdownWait;
 
     @Builder.Default
     private transient HashMap<String, RegisteredServer> serverMap = new HashMap<>();
@@ -51,15 +58,23 @@ public class FlexNetGroup {
 
     public RegisteredServer randomPickServer() {
         // if(serverMap.isEmpty()) throw new IllegalStateException("No server is registered in serverMap");
-        int playerCount = -1;
         RegisteredServer server = null;
-        // pick the server with lowest player count
-        for(RegisteredServer s : serverMap.values()) {
-            if(playerCount == -1 || s.getPlayersConnected().size() <= playerCount) {
-                playerCount = s.getPlayersConnected().size();
-                server = s;
+        int playerCount = -1;
+
+        // pick the server with the lowest player count
+        for (Map.Entry<String, RegisteredServer> entry : serverMap.entrySet()) {
+            String serverId = entry.getKey();
+            RegisteredServer currentServer = entry.getValue();
+
+            if (!InstanceRestarter.isServerRestarting(serverId)) {
+                int currentServerPlayerCount = currentServer.getPlayersConnected().size();
+                if (server == null || currentServerPlayerCount < playerCount) {
+                    server = currentServer;
+                    playerCount = currentServerPlayerCount;
+                }
             }
         }
+
         return server;
     }
 

@@ -14,6 +14,7 @@ import net.onyxium.flexnet.config.FlexNetConfig;
 import net.onyxium.flexnet.group.FlexNetGroup;
 import net.onyxium.flexnet.group.FlexNetGroupManager;
 import net.onyxium.flexnet.instance.InstanceManager;
+import net.onyxium.flexnet.instance.InstanceRestarter;
 import net.onyxium.flexnet.instance.pterodactyl.PterodactylInstanceManager;
 import net.onyxium.flexnet.platform.FlexNetProxy;
 import net.onyxium.flexnet.util.FileUtils;
@@ -43,6 +44,7 @@ public class FlexNetVelocityPlugin implements FlexNetProxy {
     private InstanceManager instanceManager;
     private FlexNetVelocityInstanceController instanceController;
     private FlexNetGroupManager groupManager;
+    private InstanceRestarter instanceRestarter;
 
     @Inject
     public FlexNetVelocityPlugin(ProxyServer server, Logger logger, @DataDirectory Path dataFolder) {
@@ -60,10 +62,14 @@ public class FlexNetVelocityPlugin implements FlexNetProxy {
         this.instanceManager = new PterodactylInstanceManager(config.getPterodactyl(), this);
         this.groupManager = new FlexNetGroupManager(config);
         this.instanceController = new FlexNetVelocityInstanceController(this, groupManager, instanceManager, config);
+        this.instanceRestarter = new InstanceRestarter(this, groupManager, instanceManager, instanceController, config);
 
         proxyServer.getEventManager().register(this,
                 new FlexNetVelocityPlayerForwarder(proxyServer, groupManager, config, proxyServer));
         proxyServer.getEventManager().register(this, instanceController);
+
+        // Check and restart servers every 60 seconds
+        this.scheduleRepeatTask(instanceRestarter::checkAndRestartServers, 1L, 60L);
     }
 
     /**

@@ -1,26 +1,37 @@
 [pterodactyl]
-apiUrl = ""
-apiKey = ""
+apiUrl = "https://panel.onyxium.net"
+apiKey = "ptla_Hpvg6RUTMhbgAHM0ez0yR5FMjx5UE3oaeMMPu9szHLJ"
+clientApiKey = "ptlc_yIDOYD7jqXeaDC02KW9Iapc6SfkaTOiXIErnrr4BigS"
 allocationAliasPrefix = "dynamic-"
 
 [locale]
 invalidHostname = "Invalid hostname"
 failedToConnect = "Connection to the main server could not be established"
 noServerAvailable = "No server available"
+serverRestartWarning = "Server will restart in {0} minutes. Please move to the new server."
 
 [groups]
     [groups.tlrpg]
-    fromHostname = "play.thelierpg.com"
+    fromHostname = "play.theliemc.com"
     serverName = "tlrpg"
     maxInstance = 5
-    playerAmountToCreateInstance = 20
+    playerAmountToCreateInstance = 1
     defaultServer = "tlrpg"
-    [groups.survival]
+    #Restart every few minutes (->execute restart task and start reminder)
+    autoRestartInterval = 1440
+    #Reminder of how many seconds until kicking (not included in autoRestartInterval)
+    restartWarningIntervals = [1800, 900, 600, 300, 240, 180, 120, 60, 30, 15, 10, 5, 4, 3, 2, 1]
+    #After kicking the player, wait a few minutes before closing the server (not included in autoRestartInterval)
+    postShutdownWait = 8
+[groups.survival]
     fromHostname = "survival.onyxium.net"
     serverName = "survival"
     maxInstance = 5
     playerAmountToCreateInstance = 20
     defaultServer = "survival"
+    autoRestartInterval = 1440
+    restartWarningIntervals = [1800, 900, 600, 300, 240, 180, 120, 60, 30, 15, 10, 5, 4, 3, 2, 1]
+    postShutdownWait = 5
 
 [templates]
     [templates.tlrpg]
@@ -30,11 +41,11 @@ noServerAvailable = "No server available"
     dockerImage = "ghcr.io/pterodactyl/yolks:java_17"
     locationId = 1
     nestId = 1
-    eggId = 1
-    defaultOwnerId = 1
+    eggId = 3
+    defaultOwnerId = 2
     cpuAmount = 200
-    ramAmount = 512
-    diskAmount = 512
-    skipInitScript = true
+    memoryAmount = 5120
+    diskAmount = 5120
+    skipInitScript = false
         [templates.tlrpg.environmentValues]
         SERVER_JARFILE = "server.jar"

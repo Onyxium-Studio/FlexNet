@@ -24,6 +24,9 @@ public class FlexNetGroupManager {
                     .id(key)
                     .fromHostname(value.getFromHostname())
                     .serverName(value.getServerName())
+                    .autoRestartInterval(value.getAutoRestartInterval())
+                    .restartWarningIntervals(value.getRestartWarningIntervals())
+                    .postShutdownWait(value.getPostShutdownWait())
                     .build();
             groupIdMap.put(key, group);
             groupFromHostMap.put(group.getFromHostname(), group);

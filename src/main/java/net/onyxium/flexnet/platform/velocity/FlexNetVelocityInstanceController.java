@@ -2,17 +2,22 @@ package net.onyxium.flexnet.platform.velocity;
 
 import com.velocitypowered.api.event.Subscribe;
 import com.velocitypowered.api.event.proxy.ProxyShutdownEvent;
+import com.velocitypowered.api.proxy.server.RegisteredServer;
 import lombok.extern.slf4j.Slf4j;
 import net.onyxium.flexnet.config.FlexNetConfig;
 import net.onyxium.flexnet.group.FlexNetGroup;
 import net.onyxium.flexnet.group.FlexNetGroupManager;
 import net.onyxium.flexnet.instance.InstanceManager;
+import net.onyxium.flexnet.instance.InstanceRestarter;
 import net.onyxium.flexnet.model.InstanceTemplate;
 import net.onyxium.flexnet.platform.FlexNetProxy;
 import net.onyxium.flexnet.platform.velocity.event.FlexNetVelocityPlayerForwardedEvent;
 import net.onyxium.flexnet.util.TaskUtils;
 
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 
 @Slf4j
 public class FlexNetVelocityInstanceController {
@@ -21,6 +26,8 @@ public class FlexNetVelocityInstanceController {
     private final FlexNetGroupManager groupManager;
     private final InstanceManager instanceManager;
     private final FlexNetConfig config;
+
+    // TODO: 處理 restart server
     private final HashSet<String> createdInstanceIdentifiers = new HashSet<>();
 
     public FlexNetVelocityInstanceController(
@@ -100,19 +107,28 @@ public class FlexNetVelocityInstanceController {
         onServerStop();
     }
 
-    private void createInstance(InstanceTemplate template, FlexNetGroup group) {
+    public CompletableFuture<String> createInstance(InstanceTemplate template, FlexNetGroup group) {
+        CompletableFuture<String> future = new CompletableFuture<>();
         log.info("Creating instance for group {}", group.getServerName());
+
         instanceManager.createInstance(template, (result) -> {
-            if(result.isSuccess()) {
+            if (result.isSuccess()) {
+                String instanceId = result.getInstanceId();
                 proxy.scheduleTask(() -> {
-                    proxy.addServer(result.getInstanceId(), result.getAddress(), group);
-                    log.info("Created instance {} for group {}", result.getInstanceId(), group.getServerName());
+                    // trackServer
+                    InstanceRestarter.trackServer(instanceId);
+                    proxy.addServer(instanceId, result.getAddress(), group);
+                    log.info("Created instance {} for group {}", instanceId, group.getServerName());
+                    future.complete(instanceId);
                 }, template.getServerOnlineDelay());
-                createdInstanceIdentifiers.add(result.getInstanceId());
+                createdInstanceIdentifiers.add(instanceId);
             } else {
                 log.warn("Failed to create instance for group {}", group.getServerName());
+                future.completeExceptionally(new RuntimeException("Failed to create instance")); // 錯誤情況
             }
         });
+
+        return future;
     }
 
 }

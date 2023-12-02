@@ -9,4 +9,7 @@ public class SingleGroupConfig {
     private int maxInstance;
     private int playerAmountToCreateInstance;
     private String defaultServer;
+    private int autoRestartInterval;
+    private int[] restartWarningIntervals;
+    private int postShutdownWait;
 }
