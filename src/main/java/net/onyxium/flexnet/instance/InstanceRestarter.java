@@ -11,7 +11,6 @@ import net.onyxium.flexnet.platform.FlexNetProxy;
 import net.onyxium.flexnet.platform.velocity.FlexNetVelocityInstanceController;
 
 import java.util.HashMap;
-import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 
@@ -41,17 +40,21 @@ public class InstanceRestarter {
     }
 
     public void checkAndRestartServers() {
-        for (FlexNetGroup group : groupManager.getAllGroups()) {
-            for (Map.Entry<String, RegisteredServer> entry : group.getAllServers()) {
-                String serverId = entry.getKey();
-                if (isServerRestarting(serverId)) continue;
+        groupManager.getAllGroups().forEach(this::processGroupForRestart);
+    }
 
-                long uptime = getServerUptime(serverId);
-                int restartInterval = group.getAutoRestartInterval();
-                if (uptime >= restartInterval) {
-                    initiateRestartProcess(serverId, group);
-                }
-            }
+    private void processGroupForRestart(FlexNetGroup group) {
+        group.getAllServers().stream()
+                .filter(entry -> !isServerRestarting(entry.getKey()))
+                .forEach(entry -> checkServerForRestart(entry.getKey(), entry.getValue(), group));
+    }
+
+    private void checkServerForRestart(String serverId, RegisteredServer server, FlexNetGroup group) {
+        long uptime = getServerUptime(serverId);
+        int restartInterval = group.getAutoRestartInterval();
+
+        if (uptime >= restartInterval) {
+            initiateRestartProcess(serverId, group);
         }
     }
 
@@ -69,28 +72,23 @@ public class InstanceRestarter {
     private void initiateRestartProcess(String serverId, FlexNetGroup group) {
         markServerRestarting(serverId);
 
-        // Step 1: Create a new server instance
         CompletableFuture<String> future = instanceController.createInstance(
                 config.getTemplates().get(group.getId()), group);
 
-        future.thenAccept(newServerId -> {
-            // Step 2: Send restart warnings after new server is ready
-            scheduleRestartReminders(serverId, group, newServerId);
+        future.thenAccept(newServerId -> handleServerRestart(serverId, group, newServerId));
+    }
 
-            // Step 3: Kick players gradually after all warnings are sent
-            long firstWarningTime = group.getRestartWarningIntervals()[0];
-            log.info("Kicking players of server {} in {} seconds", serverId, firstWarningTime);
-            CompletableFuture<Void> kickFuture = CompletableFuture.runAsync(() -> {
-                        log.info("One check: kicking players of server {} in {} seconds", serverId, firstWarningTime);
-                    }, CompletableFuture.delayedExecutor(firstWarningTime, TimeUnit.SECONDS))
-                    .thenCompose(aVoid -> kickPlayersGradually(serverId, group));
+    private void handleServerRestart(String serverId, FlexNetGroup group, String newServerId) {
+        scheduleRestartReminders(serverId, group, newServerId);
 
-            kickFuture.thenRun(() -> {
-                // Step 4: Delete the server after wait time
-                log.info("One check: delete server {} in {}", serverId, group.getPostShutdownWait());
-                deleteServerAfterWait(serverId, group, group.getPostShutdownWait());
-            });
-        });
+        long firstWarningTime = group.getRestartWarningIntervals()[0];
+        log.info("Kicking players of server {} in {} seconds", serverId, firstWarningTime);
+
+        CompletableFuture<Void> kickFuture = CompletableFuture.runAsync(() ->
+                        kickPlayersGradually(serverId, group),
+                CompletableFuture.delayedExecutor(firstWarningTime, TimeUnit.SECONDS));
+
+        kickFuture.thenRun(() -> deleteServerAfterWait(serverId, group, group.getPostShutdownWait()));
     }
 
     private void deleteServerAfterWait(String serverId, FlexNetGroup group, int waitTime) {
@@ -103,7 +101,7 @@ public class InstanceRestarter {
         }, waitTime * 60L);
     }
 
-    private CompletableFuture<Void> kickPlayersGradually(String serverId, FlexNetGroup group) {
+    private void kickPlayersGradually(String serverId, FlexNetGroup group) {
         CompletableFuture<Void> future = new CompletableFuture<>();
         RegisteredServer server = group.getServer(serverId);
         if (server != null) {
@@ -122,7 +120,6 @@ public class InstanceRestarter {
             future.complete(null);
         }
         log.info("Kicking players done");
-        return future;
     }
 
     private void scheduleRestartReminders(String serverId, FlexNetGroup group, String newServerId) {
