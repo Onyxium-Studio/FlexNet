@@ -41,35 +41,38 @@ public class FlexNetVelocityInstanceController {
         this.instanceManager = instanceManager;
         this.config = config;
         createServerOnInit();
-        createServerCleanupTask();
+//        createServerCleanupTask();
     }
 
     protected void onServerStop() {
+        log.info("Stopping FlexNet...");
         createdInstanceIdentifiers.forEach(id ->
                 TaskUtils.runBlocking((latch) -> instanceManager.deleteInstance(id, isSuccess -> latch.countDown()))
         );
     }
 
-    private void createServerCleanupTask() {
-        proxy.scheduleRepeatTask(() -> {
-            groupManager.getAllGroups()
-                    .stream()
-                    .filter(group -> group.getServerAmount() > 1)
-                    .forEach(group -> {
-                        HashSet<String> pendingDeleteIds = new HashSet<>();
-                        group.getAllServers()
-                                .forEach(entry -> {
-                                    if(entry.getValue().getPlayersConnected().isEmpty()) {
-                                        pendingDeleteIds.add(entry.getKey());
-                                    }
-                                });
-                        pendingDeleteIds.forEach(id -> {
-                            proxy.removeServer(id, group);
-                            instanceManager.deleteInstance(id, (b) -> {});
-                        });
-                    });
-        }, 0L, 300L);
-    }
+    // TODO: check the is necessary?
+//    private void createServerCleanupTask() {
+//        proxy.scheduleRepeatTask(() -> {
+//            groupManager.getAllGroups()
+//                    .stream()
+//                    .filter(group -> group.getServerAmount() > 1)
+//                    .forEach(group -> {
+//                        HashSet<String> pendingDeleteIds = new HashSet<>();
+//                        group.getAllServers()
+//                                .forEach(entry -> {
+//                                    if(entry.getValue().getPlayersConnected().isEmpty()) {
+//                                        pendingDeleteIds.add(entry.getKey());
+//                                    }
+//                                });
+//                        pendingDeleteIds.forEach(id -> {
+//                            log.info("createServerCleanupTask: Removing server {} from group {}", id, group.getServerName());
+//                            proxy.removeServer(id, group);
+//                            instanceManager.deleteInstance(id, (b) -> {});
+//                        });
+//                    });
+//        }, 0L, 300L);
+//    }
 
     private void createServerOnInit() {
         groupManager.getAllGroups()
