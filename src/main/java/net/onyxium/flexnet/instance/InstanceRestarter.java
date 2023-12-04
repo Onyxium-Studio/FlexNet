@@ -64,9 +64,9 @@ public class InstanceRestarter {
             log.error("Server {} not found in serverUptime", serverId);
             return 0;
         }
-        long currentTime = System.currentTimeMillis();
-        log.info("Server {} uptime: {} minutes", serverId, (currentTime - startTime) / (60 * 1000));
-        return (currentTime - startTime) / (60 * 1000);
+        long serverUptime = (System.currentTimeMillis() - startTime) / (60 * 1000);
+        log.info("Server {} uptime: {} minutes", serverId, serverUptime);
+        return serverUptime;
     }
 
     private void initiateRestartProcess(String serverId, FlexNetGroup group) {
