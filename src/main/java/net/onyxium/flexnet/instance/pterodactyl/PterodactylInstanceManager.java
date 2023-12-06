@@ -1,11 +1,9 @@
 package net.onyxium.flexnet.instance.pterodactyl;
 
 import com.mattmalec.pterodactyl4j.DataType;
-import com.mattmalec.pterodactyl4j.PowerAction;
 import com.mattmalec.pterodactyl4j.PteroBuilder;
 import com.mattmalec.pterodactyl4j.UtilizationState;
 import com.mattmalec.pterodactyl4j.application.entities.*;
-import com.mattmalec.pterodactyl4j.client.entities.ClientServer;
 import com.mattmalec.pterodactyl4j.client.entities.PteroClient;
 import com.mattmalec.pterodactyl4j.client.entities.Utilization;
 import lombok.extern.slf4j.Slf4j;
@@ -16,6 +14,7 @@ import net.onyxium.flexnet.model.InstanceTemplate;
 import net.onyxium.flexnet.platform.FlexNetProxy;
 
 import java.net.InetSocketAddress;
+import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
@@ -43,40 +42,48 @@ public class PterodactylInstanceManager implements InstanceManager {
     @Override
     public void createInstance(InstanceTemplate template, Consumer<InstanceCreationResult> resultConsumer) {
         CompletableFuture.runAsync(() -> {
-            Nest nest = api.retrieveNestById(template.getNestId()).execute();
-            ApplicationEgg egg = api.retrieveEggById(nest, template.getEggId()).execute();
-            ApplicationUser owner = api.retrieveUserById(template.getDefaultOwnerId()).execute();
-            Optional<ApplicationAllocation> optAllocation = api.retrieveAllocations()
-                    .execute()
-                    .stream()
-                    .filter(appAllocation ->
-                            !appAllocation.isAssigned() &&
-                                    appAllocation.getAlias().startsWith(config.getAllocationAliasPrefix())
-                    )
-                    .findFirst();
-
-            if (optAllocation.isEmpty()) {
-                throw new IllegalStateException("No available allocation found");
-            }
-            log.info("Allocation {} found, creating server...", optAllocation.get().getAlias());
-            log.info("Owner: {} | Egg: {}", owner.getFullName(), egg.getName());
-
-            int attempt = 0;
-            while (attempt < 3) {
+            for (int attempt = 0; attempt < 3; attempt++) {
                 try {
-                    ApplicationServer server = createServer(template, optAllocation, owner, egg);
-                    executeWatcher(server, resultConsumer, optAllocation);
-                    log.info("Server {} created successfully", server.getName());
-                    return;
+                    Optional<ApplicationServer> serverOptional = tryCreateServer(template);
+                    if (serverOptional.isPresent()) {
+                        ApplicationServer server = serverOptional.get();
+                        executeWatcher(server, resultConsumer, server.getAllocations().stream().findFirst());
+                        log.info("Server {} created successfully", server.getName());
+                        return;
+                    }
                 } catch (Exception e) {
                     log.error("Attempt {} - Failed to create server: {}", attempt + 1, e.getMessage());
-                    if (attempt == 2) {
-                        log.error("All attempts to create the server have failed.");
-                    }
                 }
-                attempt++;
             }
+            log.error("All attempts to create the server have failed.");
         }).join();
+    }
+
+    private Optional<ApplicationServer> tryCreateServer(InstanceTemplate template) throws Exception {
+        Nest nest = api.retrieveNestById(template.getNestId()).execute();
+        ApplicationEgg egg = api.retrieveEggById(nest, template.getEggId()).execute();
+        ApplicationUser owner = api.retrieveUserById(template.getDefaultOwnerId()).execute(); // Maybe it isn't necessary?
+        Optional<ApplicationAllocation> optAllocation = findAvailableAllocation();
+
+        if (optAllocation.isEmpty()) {
+            log.error("No available allocation found");
+            return Optional.empty();
+        }
+
+        log.info("Allocation {} found, creating server...", optAllocation.get().getAlias());
+        log.info("Owner: {} | Egg: {}", owner.getFullName(), egg.getName());
+
+        ApplicationServer server = createServer(template, Optional.of(optAllocation.get()), owner, egg);
+        return Optional.of(server);
+    }
+
+    private Optional<ApplicationAllocation> findAvailableAllocation() throws Exception {
+        return api.retrieveAllocations()
+                .execute()
+                .stream()
+                .filter(appAllocation -> !appAllocation.isAssigned() &&
+                        appAllocation.getAlias().startsWith(config.getAllocationAliasPrefix()))
+                .findFirst();
     }
 
     private ApplicationServer createServer(InstanceTemplate template, Optional<ApplicationAllocation> optAllocation,
@@ -99,11 +106,12 @@ public class PterodactylInstanceManager implements InstanceManager {
     }
 
     private void executeWatcher(ApplicationServer server, Consumer<InstanceCreationResult> resultConsumer,
-                                Optional<ApplicationAllocation> optAllocation) {
-        if (optAllocation.isEmpty()) {
-            throw new IllegalStateException("Allocation is not present");
+                                Optional<List<ApplicationAllocation>> optAllocationList) {
+        if (optAllocationList.isEmpty() || optAllocationList.get().isEmpty()) {
+            throw new IllegalStateException("Allocation list is empty or not present");
         }
 
+        ApplicationAllocation allocation = optAllocationList.get().get(0); // Assume first allocation is the desired one
         watcher.createTask(
                 server.getIdentifier(),
                 clientServer -> {},
@@ -121,12 +129,13 @@ public class PterodactylInstanceManager implements InstanceManager {
                         InstanceCreationResult.builder()
                                 .instanceId(server.getIdentifier())
                                 .instanceName(server.getName())
-                                .address(new InetSocketAddress(optAllocation.get().getIP(), optAllocation.get().getPortInt()))
+                                .address(new InetSocketAddress(allocation.getIP(), allocation.getPortInt()))
                                 .success(true)
                                 .build()
                 )
         );
     }
+
 
     @Override
     public void deleteInstance(String identifier, Consumer<Boolean> callback) {
