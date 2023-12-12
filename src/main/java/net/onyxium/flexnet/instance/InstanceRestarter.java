@@ -23,7 +23,11 @@ public class InstanceRestarter {
     private final FlexNetConfig config;
     private final LocaleConfig locale;
     private static final HashMap<String, Long> serverUptime = new HashMap<>();
+    // server is wait for kick player and deleting
     private static final HashMap<String, Boolean> serversRestarting = new HashMap<>();
+    // which server is in the process of creating new instance
+    private static final HashMap<String, Boolean> serversRestartingProcess = new HashMap<>();
+
 
     public InstanceRestarter(FlexNetProxy proxy, FlexNetGroupManager groupManager, InstanceManager instanceManager,
                              FlexNetVelocityInstanceController instanceController, FlexNetConfig config) {
@@ -64,18 +68,17 @@ public class InstanceRestarter {
             log.error("Server {} not found in serverUptime", serverId);
             return 0;
         }
-        long serverUptime = (System.currentTimeMillis() - startTime) / (60 * 1000);
-        log.info("Server {} uptime: {} minutes", serverId, serverUptime);
-        return serverUptime;
+        long serverUptimeValue = (System.currentTimeMillis() - startTime) / (60 * 1000);
+        log.info("Server {} uptime: {} minutes", serverId, serverUptimeValue);
+        return serverUptimeValue;
     }
 
     private void initiateRestartProcess(String serverId, FlexNetGroup group) {
-        // Do check again for the debug
-        if (isServerRestarting(serverId)) {
-            log.error("Debug: Server {} is already in restart process", serverId);
+        if (serversRestartingProcess.getOrDefault(serverId, false)) {
+            log.error("Restart process for server {} is already in progress", serverId);
             return;
         }
-        markServerRestarting(serverId);
+        serversRestartingProcess.put(serverId, true);
 
         CompletableFuture<String> future = instanceController.createInstance(
                 config.getTemplates().get(group.getId()), group);
@@ -84,6 +87,7 @@ public class InstanceRestarter {
     }
 
     private void handleServerRestart(String serverId, FlexNetGroup group, String newServerId) {
+        markServerRestarting(serverId);
         scheduleRestartReminders(serverId, group, newServerId);
 
         long firstWarningTime = group.getRestartWarningIntervals()[0];
@@ -100,7 +104,7 @@ public class InstanceRestarter {
         log.info("Deleting server {} in {} minutes", serverId, waitTime);
         proxy.scheduleTask(() -> {
             if (group.getServer(serverId) != null) {
-                // Delete server in serversRestarting and serverUptime
+                serversRestartingProcess.remove(serverId);
                 serversRestarting.remove(serverId);
                 serverUptime.remove(serverId);
                 proxy.removeServer(serverId, group);
@@ -113,14 +117,9 @@ public class InstanceRestarter {
         CompletableFuture<Void> future = new CompletableFuture<>();
         RegisteredServer server = group.getServer(serverId);
         if (server != null) {
-            int delay = 0;
             while (!server.getPlayersConnected().isEmpty()) {
-                proxy.scheduleTask(() -> {
-                    server.getPlayersConnected().stream().limit(5).forEach(player -> {
-                        player.disconnect(Component.text("Server is restarting!"));
-                    });
-                }, delay);
-                delay += 3;
+                proxy.scheduleTask(() -> server.getPlayersConnected().stream().limit(5)
+                        .forEach(player -> player.disconnect(Component.text("Server is restarting!"))), 3);
             }
             future.complete(null);
         } else {
