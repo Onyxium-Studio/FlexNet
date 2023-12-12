@@ -70,6 +70,11 @@ public class InstanceRestarter {
     }
 
     private void initiateRestartProcess(String serverId, FlexNetGroup group) {
+        // Do check again for the debug
+        if (isServerRestarting(serverId)) {
+            log.error("Debug: Server {} is already in restart process", serverId);
+            return;
+        }
         markServerRestarting(serverId);
 
         CompletableFuture<String> future = instanceController.createInstance(
@@ -95,6 +100,9 @@ public class InstanceRestarter {
         log.info("Deleting server {} in {} minutes", serverId, waitTime);
         proxy.scheduleTask(() -> {
             if (group.getServer(serverId) != null) {
+                // Delete server in serversRestarting and serverUptime
+                serversRestarting.remove(serverId);
+                serverUptime.remove(serverId);
                 proxy.removeServer(serverId, group);
                 instanceManager.deleteInstance(serverId, (b) -> {});
             }
