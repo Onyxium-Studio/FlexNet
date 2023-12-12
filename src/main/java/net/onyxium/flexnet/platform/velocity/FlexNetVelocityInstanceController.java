@@ -26,8 +26,6 @@ public class FlexNetVelocityInstanceController {
     private final FlexNetGroupManager groupManager;
     private final InstanceManager instanceManager;
     private final FlexNetConfig config;
-
-    // TODO: 處理 restart server
     private final HashSet<String> createdInstanceIdentifiers = new HashSet<>();
 
     public FlexNetVelocityInstanceController(
@@ -49,6 +47,15 @@ public class FlexNetVelocityInstanceController {
         createdInstanceIdentifiers.forEach(id ->
                 TaskUtils.runBlocking((latch) -> instanceManager.deleteInstance(id, isSuccess -> latch.countDown()))
         );
+    }
+
+    public void removeInstanceId(String instanceId) {
+        if (createdInstanceIdentifiers.contains(instanceId)) {
+            createdInstanceIdentifiers.remove(instanceId);
+            log.info("Instance id {} removed from createdInstanceIdentifiers.", instanceId);
+        } else {
+            log.warn("Attempted to remove non-existing instance id {} from createdInstanceIdentifiers.", instanceId);
+        }
     }
 
     // TODO: check the is necessary?
@@ -127,7 +134,7 @@ public class FlexNetVelocityInstanceController {
                 createdInstanceIdentifiers.add(instanceId);
             } else {
                 log.warn("Failed to create instance for group {}", group.getServerName());
-                future.completeExceptionally(new RuntimeException("Failed to create instance")); // 錯誤情況
+                future.completeExceptionally(new RuntimeException("Failed to create instance")); // TODO: 錯誤情況
             }
         });
 

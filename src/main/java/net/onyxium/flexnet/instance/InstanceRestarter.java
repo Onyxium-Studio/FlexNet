@@ -104,6 +104,7 @@ public class InstanceRestarter {
         log.info("Deleting server {} in {} minutes", serverId, waitTime);
         proxy.scheduleTask(() -> {
             if (group.getServer(serverId) != null) {
+                instanceController.removeInstanceId(serverId);
                 serversRestartingProcess.remove(serverId);
                 serversRestarting.remove(serverId);
                 serverUptime.remove(serverId);
