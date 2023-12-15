@@ -3,6 +3,11 @@ package net.onyxium.flexnet.instance;
 import com.velocitypowered.api.proxy.server.RegisteredServer;
 import lombok.extern.slf4j.Slf4j;
 import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.TextComponent;
+import net.kyori.adventure.text.event.ClickEvent;
+import net.kyori.adventure.text.event.HoverEvent;
+import net.kyori.adventure.text.format.TextColor;
+import net.onyxium.flexnet.command.JoinNewCommand;
 import net.onyxium.flexnet.config.FlexNetConfig;
 import net.onyxium.flexnet.config.LocaleConfig;
 import net.onyxium.flexnet.group.FlexNetGroup;
@@ -11,6 +16,7 @@ import net.onyxium.flexnet.platform.FlexNetProxy;
 import net.onyxium.flexnet.platform.velocity.FlexNetVelocityInstanceController;
 
 import java.util.HashMap;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 
@@ -20,6 +26,7 @@ public class InstanceRestarter {
     private final FlexNetGroupManager groupManager;
     private final FlexNetVelocityInstanceController instanceController;
     private final InstanceManager instanceManager;
+    private final JoinNewCommand joinNewCommand;
     private final FlexNetConfig config;
     private final LocaleConfig locale;
     private static final HashMap<String, Long> serverUptime = new HashMap<>();
@@ -28,15 +35,16 @@ public class InstanceRestarter {
     // which server is in the process of creating new instance
     private static final HashMap<String, Boolean> serversRestartingProcess = new HashMap<>();
 
-
     public InstanceRestarter(FlexNetProxy proxy, FlexNetGroupManager groupManager, InstanceManager instanceManager,
-                             FlexNetVelocityInstanceController instanceController, FlexNetConfig config) {
+                             FlexNetVelocityInstanceController instanceController, FlexNetConfig config,
+                             JoinNewCommand joinNewCommand) {
         this.proxy = proxy;
         this.groupManager = groupManager;
         this.instanceManager = instanceManager;
         this.instanceController = instanceController;
         this.config = config;
         this.locale = config.getLocale();
+        this.joinNewCommand = joinNewCommand;
     }
 
     public static void trackServer(String serverId) {
@@ -94,7 +102,7 @@ public class InstanceRestarter {
         log.info("Kicking players of server {} in {} seconds", serverId, firstWarningTime);
 
         CompletableFuture<Void> kickFuture = CompletableFuture.runAsync(() ->
-                        kickPlayersGradually(serverId, group),
+                        kickPlayersGradually(newServerId, serverId, group),
                 CompletableFuture.delayedExecutor(firstWarningTime, TimeUnit.SECONDS));
 
         kickFuture.thenRun(() -> deleteServerAfterWait(serverId, group, group.getPostShutdownWait()));
@@ -114,21 +122,36 @@ public class InstanceRestarter {
         }, waitTime * 60L);
     }
 
-    private void kickPlayersGradually(String serverId, FlexNetGroup group) {
+    private void kickPlayersGradually(String newServerId, String serverId, FlexNetGroup group) {
         CompletableFuture<Void> future = new CompletableFuture<>();
         RegisteredServer server = group.getServer(serverId);
+        String groupName = group.getServerName();
+
         if (server != null) {
-            while (!server.getPlayersConnected().isEmpty()) {
-                proxy.scheduleTask(() -> server.getPlayersConnected().stream().limit(5)
-                        .forEach(player -> player.disconnect(Component.text("Server is restarting!"))), 3);
-            }
-            future.complete(null);
+            kickPlayers(server, newServerId, groupName, future);
         } else {
             log.info("Server {} not found for kicking players", serverId);
             future.complete(null);
         }
-        log.info("Kicking players done");
+
+        future.thenRun(() -> log.info("Kicking players done"));
     }
+
+    private void kickPlayers(RegisteredServer server, String newServerId, String groupName, CompletableFuture<Void> future) {
+        if (!server.getPlayersConnected().isEmpty()) {
+            log.info("Kicking players of server {}", server.getServerInfo().getName());
+
+            server.getPlayersConnected().stream().limit(5).forEach(player -> {
+                UUID playerId = player.getUniqueId();
+                joinNewCommand.redirectPlayerToTargetServer(playerId, newServerId, groupName, player);
+            });
+
+            proxy.scheduleTask(() -> kickPlayers(server, newServerId, groupName, future), 3);
+        } else {
+            future.complete(null);
+        }
+    }
+
 
     private void scheduleRestartReminders(String serverId, FlexNetGroup group, String newServerId) {
         int[] intervals = group.getRestartWarningIntervals();
@@ -148,7 +171,14 @@ public class InstanceRestarter {
             // TODO: With the button, player can click and connect to the new server
             String restartMessageTemplate = locale.getServerRestartWarning();
             String restartMessage = restartMessageTemplate.replace("{0}", String.valueOf(leftTime));
-            Component message = Component.text(restartMessage);
+
+            TextComponent.Builder messageBuilder = Component.text()
+                    .content(restartMessage)
+                    .append(Component.text(" [Click to join new server]")
+                            .color(TextColor.fromHexString("#00A5FF"))
+                            .hoverEvent(HoverEvent.showText(Component.text("Click to join new server")))
+                            .clickEvent(ClickEvent.runCommand("/JoinNew " + newServerId + " " + group.getServerName())));
+            Component message = messageBuilder.build();
 
             server.getPlayersConnected().forEach(player -> player.sendMessage(message));
             log.info("Notified players of server {} restart in {} seconds", serverId, leftTime);

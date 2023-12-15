@@ -19,6 +19,8 @@ public class FlexNetGroup {
     @Getter
     private String serverName;
     @Getter
+    private String hubServer;
+    @Getter
     private int maxInstance;
     @Getter
     private int playerAmountToCreateInstance;

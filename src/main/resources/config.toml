@@ -14,9 +14,9 @@ serverRestartWarning = "Server will restart in {0} minutes. Please move to the n
     [groups.tlrpg]
     fromHostname = "play.theliemc.com"
     serverName = "tlrpg"
+    hubServer = "hub"
     maxInstance = 5
     playerAmountToCreateInstance = 1
-    defaultServer = "tlrpg"
     #Restart every few minutes (->execute restart task and start reminder)
     autoRestartInterval = 1440
     #Reminder of how many seconds until kicking (not included in autoRestartInterval)
@@ -26,9 +26,9 @@ serverRestartWarning = "Server will restart in {0} minutes. Please move to the n
 [groups.survival]
     fromHostname = "survival.onyxium.net"
     serverName = "survival"
+    hubServer = "tlrpg"
     maxInstance = 5
     playerAmountToCreateInstance = 20
-    defaultServer = "survival"
     autoRestartInterval = 1440
     restartWarningIntervals = [1800, 900, 600, 300, 240, 180, 120, 60, 30, 15, 10, 5, 4, 3, 2, 1]
     postShutdownWait = 5
