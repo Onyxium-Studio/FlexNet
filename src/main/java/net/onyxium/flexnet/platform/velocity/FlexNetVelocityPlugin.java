@@ -120,6 +120,13 @@ public class FlexNetVelocityPlugin implements FlexNetProxy {
     }
 
     @Override
+    public void scheduleTask(Runnable runnable, long delay, boolean isMillisecond) {
+        proxyServer.getScheduler().buildTask(this, runnable)
+                .delay(Duration.of(delay, ChronoUnit.MILLIS))
+                .schedule();
+    }
+
+    @Override
     public void scheduleRepeatTask(Runnable runnable, long delay, long interval) {
         proxyServer.getScheduler().buildTask(this, runnable)
                 .delay(Duration.of(delay, ChronoUnit.SECONDS))

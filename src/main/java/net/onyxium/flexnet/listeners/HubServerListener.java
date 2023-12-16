@@ -35,7 +35,7 @@ public class HubServerListener {
                     proxy.scheduleTask(() -> {
                         log.info("Redirecting player {} to server {}", player.getUsername(), targetServerId);
                         player.createConnectionRequest(targetServer).fireAndForget();
-                    }, 1); // TODO: delay 1 is enough for all cases?
+                    },  150, true); // TODO: delay 0.15 is enough for all cases?
                 }
                 playerTargetServerMap.remove(playerId);
             });

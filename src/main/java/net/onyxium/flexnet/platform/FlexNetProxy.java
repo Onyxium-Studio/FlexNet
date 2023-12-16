@@ -10,6 +10,9 @@ public interface FlexNetProxy {
     void removeServer(String identifier, FlexNetGroup group);
 
     void scheduleTask(Runnable runnable, long delayInSecond);
+
+    void scheduleTask(Runnable runnable, long delay, boolean isMillisecond);
+
     void scheduleRepeatTask(Runnable runnable, long delayInSecond, long intervalInSecond);
 
 }
