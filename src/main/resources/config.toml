@@ -9,6 +9,10 @@ invalidHostname = "Invalid hostname"
 failedToConnect = "Connection to the main server could not be established"
 noServerAvailable = "No server available"
 serverRestartWarning = "Server will restart in {0} minutes. Please move to the new server."
+joinNewCommandUsage = "Usage: /JoinNew <serverId> <groupName>"
+joinNewServerNotFound = "Server not found: {0}"
+joinNewGroupNotFound = "Group not found: {0}"
+joinNewServerRestarting = "Server is restarting, You can't join in {0}"
 
 [groups]
     [groups.tlrpg]

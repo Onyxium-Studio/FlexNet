@@ -8,4 +8,8 @@ public class LocaleConfig {
     private String failedToConnect;
     private String noServerAvailable;
     private String serverRestartWarning;
+    private String joinNewCommandUsage;
+    private String joinNewServerNotFound;
+    private String joinNewGroupNotFound;
+    private String joinNewServerRestarting;
 }
