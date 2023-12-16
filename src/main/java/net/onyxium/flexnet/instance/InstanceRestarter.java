@@ -15,10 +15,13 @@ import net.onyxium.flexnet.group.FlexNetGroupManager;
 import net.onyxium.flexnet.platform.FlexNetProxy;
 import net.onyxium.flexnet.platform.velocity.FlexNetVelocityInstanceController;
 
+import java.text.MessageFormat;
 import java.util.HashMap;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 @Slf4j
 public class InstanceRestarter {
@@ -28,12 +31,15 @@ public class InstanceRestarter {
     private final InstanceManager instanceManager;
     private final JoinNewCommand joinNewCommand;
     private final FlexNetConfig config;
-    private final LocaleConfig locale;
+
     private static final HashMap<String, Long> serverUptime = new HashMap<>();
     // server is wait for kick player and deleting
     private static final HashMap<String, Boolean> serversRestarting = new HashMap<>();
     // which server is in the process of creating new instance
     private static final HashMap<String, Boolean> serversRestartingProcess = new HashMap<>();
+
+    private final String clickablePartText;
+    private final String restartMessageWithoutClickablePart;
 
     public InstanceRestarter(FlexNetProxy proxy, FlexNetGroupManager groupManager, InstanceManager instanceManager,
                              FlexNetVelocityInstanceController instanceController, FlexNetConfig config,
@@ -43,8 +49,20 @@ public class InstanceRestarter {
         this.instanceManager = instanceManager;
         this.instanceController = instanceController;
         this.config = config;
-        this.locale = config.getLocale();
+        LocaleConfig locale = config.getLocale();
         this.joinNewCommand = joinNewCommand;
+
+        // preprocess restart message template
+        String restartMessageTemplate = locale.getServerRestartWarning();
+        Matcher matcher = Pattern.compile("\\{1}\\[(.*?)\\]").matcher(restartMessageTemplate);
+        if (matcher.find()) {
+            this.clickablePartText = matcher.group(1);
+        } else {
+            this.clickablePartText = "";
+        }
+
+        this.restartMessageWithoutClickablePart =
+                restartMessageTemplate.replaceFirst("\\{1}\\[.*?\\]", "");
     }
 
     public static void trackServer(String serverId) {
@@ -165,26 +183,25 @@ public class InstanceRestarter {
         }
     }
 
-    private void notifyPlayersOfRestart(String serverId, FlexNetGroup group, String newServerId, int leftTime) {
+    private void notifyPlayersOfRestart(String serverId, FlexNetGroup group,
+                                        String newServerId, int leftTime) {
         RegisteredServer server = group.getServer(serverId);
-        if (server != null) {
-            // TODO: With the button, player can click and connect to the new server
-            String restartMessageTemplate = locale.getServerRestartWarning();
-            String restartMessage = restartMessageTemplate.replace("{0}", String.valueOf(leftTime));
-
-            TextComponent.Builder messageBuilder = Component.text()
-                    .content(restartMessage)
-                    .append(Component.text(" [Click to join new server]")
-                            .color(TextColor.fromHexString("#00A5FF"))
-                            .hoverEvent(HoverEvent.showText(Component.text("Click to join new server")))
-                            .clickEvent(ClickEvent.runCommand("/JoinNew " + newServerId + " " + group.getServerName())));
-            Component message = messageBuilder.build();
-
-            server.getPlayersConnected().forEach(player -> player.sendMessage(message));
-            log.info("Notified players of server {} restart in {} seconds", serverId, leftTime);
-        } else {
+        if (server == null) {
             log.error("Server {} not found for notification", serverId);
+            return;
         }
+
+        String restartMessageFormatted = MessageFormat.format(this.restartMessageWithoutClickablePart, leftTime);
+
+        TextComponent clickablePart = Component.text(this.clickablePartText)
+                // TODO: will.. need add a option to config to change color and hover text?
+                .color(TextColor.fromHexString("#00A5FF"))
+                .hoverEvent(HoverEvent.showText(Component.text(this.clickablePartText)))
+                .clickEvent(ClickEvent.runCommand("/JoinNew " + newServerId + " " + group.getServerName()));
+        TextComponent finalMessage = Component.text(restartMessageFormatted).append(clickablePart);
+
+        server.getPlayersConnected().forEach(player -> player.sendMessage(finalMessage));
+        log.info("Notified players of server {} restart in {} seconds", serverId, leftTime);
     }
 
     public void markServerRestarting(String serverId) {
