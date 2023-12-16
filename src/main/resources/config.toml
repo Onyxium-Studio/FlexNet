@@ -9,11 +9,12 @@ invalidHostname = "Invalid hostname"
 failedToConnect = "Connection to the main server could not be established"
 noServerAvailable = "No server available"
 #Use {1}[(click message)] to add a clickable message (must be in the end)
-serverRestartWarning = "Server will restart in {0} minutes. Please move to the new server. {1}[Click here to join!]"
+serverRestartWarning = "Server will restart in {0} seconds. Please move to the new server. {1}[Click here to join!]"
 joinNewCommandUsage = "Usage: /JoinNew <serverId> <groupName>"
 joinNewServerNotFound = "Server not found: {0}"
 joinNewGroupNotFound = "Group not found: {0}"
-joinNewServerRestarting = "Server is restarting, You can't join in {0}"
+joinNewServerRestarting = "You can't join in {0} Server is restarting, "
+playerInServerMessage = "You are already in a server ({0})"
 
 [groups]
     [groups.tlrpg]

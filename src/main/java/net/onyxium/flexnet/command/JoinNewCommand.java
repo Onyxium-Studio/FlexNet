@@ -26,6 +26,7 @@ public class JoinNewCommand implements SimpleCommand {
     private final String serverNotFoundMessage;
     private final String groupNotFoundMessage;
     private final String serverRestartingMessage;
+    private final String playerInServerMessage;
 
     public JoinNewCommand(ProxyServer proxyServer, Logger logger, FlexNetConfig config,
                           FlexNetGroupManager groupManager, Map<UUID, String> playerTargetServerMap) {
@@ -39,6 +40,7 @@ public class JoinNewCommand implements SimpleCommand {
         this.serverNotFoundMessage = locale.getJoinNewServerNotFound();
         this.groupNotFoundMessage = locale.getJoinNewGroupNotFound();
         this.serverRestartingMessage = locale.getJoinNewServerRestarting();
+        this.playerInServerMessage = locale.getPlayerInServerMessage();
     }
 
     @Override
@@ -65,6 +67,11 @@ public class JoinNewCommand implements SimpleCommand {
 
         if (InstanceRestarter.isServerRestarting(targetServerId)) {
             player.sendMessage(Component.text(MessageFormat.format(serverRestartingMessage, targetServerId)));
+            return;
+        }
+
+        if (player.getCurrentServer().isPresent() && player.getCurrentServer().get().getServerInfo().getName().equals(targetServerId)) {
+            player.sendMessage(Component.text(MessageFormat.format(playerInServerMessage, targetServerId)));
             return;
         }
 

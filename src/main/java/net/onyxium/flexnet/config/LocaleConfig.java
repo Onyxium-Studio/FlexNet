@@ -12,4 +12,5 @@ public class LocaleConfig {
     private String joinNewServerNotFound;
     private String joinNewGroupNotFound;
     private String joinNewServerRestarting;
+    private String playerInServerMessage;
 }
