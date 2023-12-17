@@ -10,6 +10,7 @@ import com.velocitypowered.api.plugin.annotation.DataDirectory;
 import com.velocitypowered.api.proxy.ProxyServer;
 import com.velocitypowered.api.proxy.server.RegisteredServer;
 import com.velocitypowered.api.proxy.server.ServerInfo;
+import com.velocitypowered.api.scheduler.ScheduledTask;
 import net.onyxium.flexnet.command.JoinNewCommand;
 import net.onyxium.flexnet.config.FlexNetConfig;
 import net.onyxium.flexnet.group.FlexNetGroup;
@@ -53,6 +54,8 @@ public class FlexNetVelocityPlugin implements FlexNetProxy {
     private JoinNewCommand joinNewCommand;
     private final Map<UUID, String> playerTargetServerMap = new ConcurrentHashMap<>();
 
+    public static ScheduledTask restartTask;
+
     @Inject
     public FlexNetVelocityPlugin(ProxyServer server, Logger logger, @DataDirectory Path dataFolder) {
         this.proxyServer = server;
@@ -82,7 +85,7 @@ public class FlexNetVelocityPlugin implements FlexNetProxy {
 
 
         // Check and restart servers every 60 seconds
-        this.scheduleRepeatTask(instanceRestarter::checkAndRestartServers, 1L, 60L);
+        restartTask = this.scheduleRepeatTask(instanceRestarter::checkAndRestartServers, 1L, 60L);
     }
 
     /**
@@ -127,8 +130,8 @@ public class FlexNetVelocityPlugin implements FlexNetProxy {
     }
 
     @Override
-    public void scheduleRepeatTask(Runnable runnable, long delay, long interval) {
-        proxyServer.getScheduler().buildTask(this, runnable)
+    public ScheduledTask scheduleRepeatTask(Runnable runnable, long delay, long interval) {
+        return proxyServer.getScheduler().buildTask(this, runnable)
                 .delay(Duration.of(delay, ChronoUnit.SECONDS))
                 .repeat(Duration.of(interval, ChronoUnit.SECONDS))
                 .schedule();

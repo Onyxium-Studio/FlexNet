@@ -1,5 +1,6 @@
 package net.onyxium.flexnet.platform;
 
+import com.velocitypowered.api.scheduler.ScheduledTask;
 import net.onyxium.flexnet.group.FlexNetGroup;
 
 import java.net.InetSocketAddress;
@@ -13,6 +14,6 @@ public interface FlexNetProxy {
 
     void scheduleTask(Runnable runnable, long delay, boolean isMillisecond);
 
-    void scheduleRepeatTask(Runnable runnable, long delayInSecond, long intervalInSecond);
+    ScheduledTask scheduleRepeatTask(Runnable runnable, long delayInSecond, long intervalInSecond);
 
 }

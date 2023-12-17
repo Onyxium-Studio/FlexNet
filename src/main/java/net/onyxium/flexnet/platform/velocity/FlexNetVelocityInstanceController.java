@@ -44,6 +44,9 @@ public class FlexNetVelocityInstanceController {
 
     protected void onServerStop() {
         log.info("Stopping FlexNet...");
+        if (FlexNetVelocityPlugin.restartTask != null) {
+            FlexNetVelocityPlugin.restartTask.cancel();
+        }
 
         CompletableFuture<Void> waitForAllInstances = CompletableFuture.allOf(
                 creatingInstances.values().toArray(new CompletableFuture[0])
