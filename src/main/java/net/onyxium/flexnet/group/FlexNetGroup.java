@@ -59,25 +59,11 @@ public class FlexNetGroup {
     }
 
     public RegisteredServer randomPickServer() {
-        // if(serverMap.isEmpty()) throw new IllegalStateException("No server is registered in serverMap");
-        RegisteredServer server = null;
-        int playerCount = -1;
-
-        // pick the server with the lowest player count
-        for (Map.Entry<String, RegisteredServer> entry : serverMap.entrySet()) {
-            String serverId = entry.getKey();
-            RegisteredServer currentServer = entry.getValue();
-
-            if (!InstanceRestarter.isServerRestarting(serverId)) {
-                int currentServerPlayerCount = currentServer.getPlayersConnected().size();
-                if (server == null || currentServerPlayerCount < playerCount) {
-                    server = currentServer;
-                    playerCount = currentServerPlayerCount;
-                }
-            }
-        }
-
-        return server;
+        return serverMap.entrySet().stream()
+                .filter(entry -> !InstanceRestarter.isServerRestarting(entry.getKey()))
+                .min(Comparator.comparingInt(entry -> entry.getValue().getPlayersConnected().size()))
+                .map(Map.Entry::getValue)
+                .orElse(null);
     }
 
     public boolean canCreateInstance() {
