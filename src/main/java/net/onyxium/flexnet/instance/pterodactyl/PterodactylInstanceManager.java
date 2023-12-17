@@ -15,8 +15,10 @@ import net.onyxium.flexnet.platform.FlexNetProxy;
 
 import java.net.InetSocketAddress;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
 
 @Slf4j
@@ -26,6 +28,7 @@ public class PterodactylInstanceManager implements InstanceManager {
     private final PteroApplication api;
     private final PterodactylInstanceWatcher watcher;
     private final FlexNetProxy proxy;
+    private final Map<String, Boolean> deleteInProgress = new ConcurrentHashMap<>();
 
     public PterodactylInstanceManager(PterodactylConfig config, FlexNetProxy proxy) {
         this.config = config;
@@ -139,6 +142,11 @@ public class PterodactylInstanceManager implements InstanceManager {
 
     @Override
     public void deleteInstance(String identifier, Consumer<Boolean> callback) {
+        if (deleteInProgress.putIfAbsent(identifier, true) != null) {
+            log.warn("Instance deletion already in progress for: {}", identifier);
+            return;
+        }
+
         log.info("Deleting instance {}...", identifier);
         watcher.createTask(
                 identifier,
@@ -155,6 +163,7 @@ public class PterodactylInstanceManager implements InstanceManager {
                             .delete(false)
                             .execute();
                     callback.accept(true);
+                    deleteInProgress.remove(identifier);
                 }
         );
     }

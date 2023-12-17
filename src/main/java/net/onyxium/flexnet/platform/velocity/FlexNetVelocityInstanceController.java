@@ -2,7 +2,6 @@ package net.onyxium.flexnet.platform.velocity;
 
 import com.velocitypowered.api.event.Subscribe;
 import com.velocitypowered.api.event.proxy.ProxyShutdownEvent;
-import com.velocitypowered.api.proxy.server.RegisteredServer;
 import lombok.extern.slf4j.Slf4j;
 import net.onyxium.flexnet.config.FlexNetConfig;
 import net.onyxium.flexnet.group.FlexNetGroup;
@@ -14,10 +13,10 @@ import net.onyxium.flexnet.platform.FlexNetProxy;
 import net.onyxium.flexnet.platform.velocity.event.FlexNetVelocityPlayerForwardedEvent;
 import net.onyxium.flexnet.util.TaskUtils;
 
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArraySet;
 
 @Slf4j
 public class FlexNetVelocityInstanceController {
@@ -26,7 +25,8 @@ public class FlexNetVelocityInstanceController {
     private final FlexNetGroupManager groupManager;
     private final InstanceManager instanceManager;
     private final FlexNetConfig config;
-    private final HashSet<String> createdInstanceIdentifiers = new HashSet<>();
+    private final Set<String> createdInstanceIdentifiers = new CopyOnWriteArraySet<>();
+    private final ConcurrentHashMap<String, CompletableFuture<String>> creatingInstances = new ConcurrentHashMap<>();
 
     public FlexNetVelocityInstanceController(
             FlexNetProxy proxy,
@@ -39,13 +39,29 @@ public class FlexNetVelocityInstanceController {
         this.instanceManager = instanceManager;
         this.config = config;
         createServerOnInit();
-//        createServerCleanupTask();
+        //createServerCleanupTask();
     }
 
     protected void onServerStop() {
         log.info("Stopping FlexNet...");
+
+        CompletableFuture<Void> waitForAllInstances = CompletableFuture.allOf(
+                creatingInstances.values().toArray(new CompletableFuture[0])
+        );
+        waitForAllInstances.join();
+
         createdInstanceIdentifiers.forEach(id ->
-                TaskUtils.runBlocking((latch) -> instanceManager.deleteInstance(id, isSuccess -> latch.countDown()))
+                TaskUtils.runBlocking((latch) -> {
+                    instanceManager.deleteInstance(id, isSuccess -> {
+                        if (isSuccess) {
+                            log.info("Instance id {} successfully removed after deletion.", id);
+                        } else {
+                            log.warn("Failed to delete instance id {}.", id);
+                        }
+                        createdInstanceIdentifiers.remove(id);
+                        latch.countDown();
+                    });
+                })
         );
     }
 
@@ -93,17 +109,17 @@ public class FlexNetVelocityInstanceController {
     @Subscribe
     public void onFlexNetPlayerForward(FlexNetVelocityPlayerForwardedEvent event) {
         // Skip creating instance if the group is full
-        if(!event.getGroup().canCreateInstance()) {
+        if (!event.getGroup().canCreateInstance()) {
             return;
         }
 
         // Skip creating instance if player count is not enough
-        if(event.getGroup().getPlayerAmountToCreateInstance() > event.getServer().getPlayersConnected().size()) {
+        if (event.getGroup().getPlayerAmountToCreateInstance() > event.getServer().getPlayersConnected().size()) {
             return;
         }
 
         // Skip creating instance if template not found
-        if(config.getTemplates().containsKey(event.getGroup().getId())) {
+        if (config.getTemplates().containsKey(event.getGroup().getId())) {
             log.warn("Template {} not found for group {}", event.getGroup().getId(), event.getGroup().getServerName());
             return;
         }
@@ -121,24 +137,28 @@ public class FlexNetVelocityInstanceController {
         CompletableFuture<String> future = new CompletableFuture<>();
         log.info("Creating instance for group {}", group.getServerName());
 
+        String instanceKey = group.getServerName() + "-" + System.currentTimeMillis();
+        creatingInstances.put(instanceKey, future);
+
         instanceManager.createInstance(template, (result) -> {
             if (result.isSuccess()) {
                 String instanceId = result.getInstanceId();
                 proxy.scheduleTask(() -> {
-                    // trackServer
                     InstanceRestarter.trackServer(instanceId);
                     proxy.addServer(instanceId, result.getAddress(), group);
                     log.info("Created instance {} for group {}", instanceId, group.getServerName());
+                    createdInstanceIdentifiers.add(instanceId);
+                    creatingInstances.remove(instanceKey);
                     future.complete(instanceId);
                 }, template.getServerOnlineDelay());
-                createdInstanceIdentifiers.add(instanceId);
             } else {
+                // TODO: handle error
                 log.warn("Failed to create instance for group {}", group.getServerName());
-                future.completeExceptionally(new RuntimeException("Failed to create instance")); // TODO: 錯誤情況
-            }
+                creatingInstances.remove(instanceKey);
+                future.completeExceptionally(new RuntimeException("Failed to create instance"));}
         });
 
         return future;
     }
-
 }
+
