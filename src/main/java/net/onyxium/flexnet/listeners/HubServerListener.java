@@ -39,7 +39,7 @@ public class HubServerListener {
     }
 
     private void retryRedirect(Player player, String targetServerId, int attempts) {
-        if (attempts >= 3) {
+        if (attempts >= 5) {
             log.error("Failed to redirect player {} to server {} after {} attempts", player.getUsername(), targetServerId, attempts);
             playerTargetServerMap.remove(player.getUniqueId());
             return;
@@ -55,6 +55,6 @@ public class HubServerListener {
             } else {
                 playerTargetServerMap.remove(player.getUniqueId());
             }
-        }, 150 + attempts * 300L, true);
+        }, 150 + attempts * 350L, true);
     }
 }
