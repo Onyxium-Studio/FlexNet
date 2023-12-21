@@ -80,20 +80,12 @@ public class FlexNetGroup {
     }
 
     public boolean canCreateInstance() {
-        long activeServersCount = serverMap.entrySet().stream()
-                .filter(entry -> !InstanceLifecycleManager.isInstanceInLifecycleProcess(entry.getKey()))
-                .count();
-
-        return activeServersCount < maxInstance &&
-                (activeServersCount == 0 || (getAllPlayersCount() / activeServersCount) >= playerAmountToCreateInstance);
+        return validServerCount < maxInstance &&
+                (validServerCount == 0 || (getAllPlayersCount() / validServerCount) >= playerAmountToCreateInstance);
     }
 
     public boolean needDeleteInstance() {
-        long activeServersCount = serverMap.entrySet().stream()
-                .filter(entry -> !InstanceLifecycleManager.isInstanceInLifecycleProcess(entry.getKey()))
-                .count();
-
-        return activeServersCount > 1 && (getAllPlayersCount() / activeServersCount) < playerAmountToCreateInstance;
+        return validServerCount > 1 && (getAllPlayersCount() / validServerCount) < playerAmountToCreateInstance;
     }
 
     public int calculateRequiredServers() {

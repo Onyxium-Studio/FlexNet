@@ -6,6 +6,7 @@ import com.velocitypowered.api.proxy.ProxyServer;
 import net.kyori.adventure.text.Component;
 import net.onyxium.flexnet.config.FlexNetConfig;
 import net.onyxium.flexnet.config.LocaleConfig;
+import net.onyxium.flexnet.group.FlexNetGroup;
 import net.onyxium.flexnet.group.FlexNetGroupManager;
 import net.onyxium.flexnet.instance.InstanceLifecycleManager;
 import org.slf4j.Logger;
@@ -79,9 +80,18 @@ public class JoinNewCommand implements SimpleCommand {
     }
 
     public void redirectPlayerToTargetServer(UUID playerId, String targetServerId, String groupName, Player player) {
+        FlexNetGroup group = groupManager.getGroup(groupName);
+
+        if (targetServerId.equals("lowest_instance")) {
+            targetServerId = group.getLowestPlayerServer().getServerInfo().getName();
+        }
+        if (proxyServer.getServer(targetServerId).get().getPlayersConnected().size() > group.getPlayerAmountToCreateInstance() - 6) {
+            targetServerId = group.getLowestPlayerServer().getServerInfo().getName();
+        }
+
         playerTargetServerMap.put(playerId, targetServerId);
 
-        String hubServerId = groupManager.getGroup(groupName).getHubServer();
+        String hubServerId = group.getHubServer();
         if (hubServerId != null && !hubServerId.isEmpty()) {
             proxyServer.getServer(hubServerId).ifPresent(
                     hubServer -> player.createConnectionRequest(hubServer).fireAndForget()
