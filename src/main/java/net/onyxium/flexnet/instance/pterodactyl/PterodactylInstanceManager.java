@@ -84,7 +84,8 @@ public class PterodactylInstanceManager implements InstanceManager {
         return api.retrieveAllocations()
                 .execute()
                 .stream()
-                .filter(appAllocation -> !appAllocation.isAssigned() &&
+                .filter(appAllocation -> appAllocation.getAlias() != null &&
+                        !appAllocation.isAssigned() &&
                         appAllocation.getAlias().startsWith(config.getAllocationAliasPrefix()))
                 .findFirst();
     }
