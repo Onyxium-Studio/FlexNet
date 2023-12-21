@@ -1,6 +1,7 @@
 package net.onyxium.flexnet.listeners;
 
 import com.velocitypowered.api.event.Subscribe;
+import com.velocitypowered.api.event.player.KickedFromServerEvent;
 import com.velocitypowered.api.event.player.ServerConnectedEvent;
 import com.velocitypowered.api.proxy.Player;
 import com.velocitypowered.api.proxy.ProxyServer;
@@ -35,6 +36,18 @@ public class HubServerListener {
                     retryRedirect(player, targetServerId, 0);
                 }
             });
+        }
+    }
+
+    @Subscribe
+    public void onDisconnect(KickedFromServerEvent event) {
+        Player player = event.getPlayer();
+        String disconnectReason = String.valueOf(event.getServerKickReason());
+
+        if (disconnectReason.contains("Your player failed to sync. Please reconnect.")) {
+            log.warn("Player {} disconnected due to sync failure, Try reconnect", player.getUsername());
+            String server = event.getServer().getServerInfo().getName();
+            retryRedirect(player, server, 0);
         }
     }
 
