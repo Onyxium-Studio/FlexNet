@@ -1,6 +1,7 @@
 package net.onyxium.flexnet.instance;
 
 import com.velocitypowered.api.proxy.server.RegisteredServer;
+import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.TextComponent;
@@ -11,7 +12,6 @@ import net.onyxium.flexnet.command.JoinNewCommand;
 import net.onyxium.flexnet.config.FlexNetConfig;
 import net.onyxium.flexnet.config.LocaleConfig;
 import net.onyxium.flexnet.group.FlexNetGroup;
-import net.onyxium.flexnet.group.FlexNetGroupManager;
 import net.onyxium.flexnet.platform.FlexNetProxy;
 import net.onyxium.flexnet.platform.velocity.FlexNetVelocityInstanceController;
 
@@ -26,9 +26,9 @@ import java.util.regex.Pattern;
 @Slf4j
 public class InstanceLifecycleManager{
     private final FlexNetProxy proxy;
-    private final FlexNetGroupManager groupManager;
     private final InstanceManager instanceManager;
-    private final FlexNetVelocityInstanceController instanceController;
+    @Setter
+    private FlexNetVelocityInstanceController instanceController;
     private final JoinNewCommand joinNewCommand;
     private final FlexNetConfig config;
 
@@ -39,11 +39,10 @@ public class InstanceLifecycleManager{
     private final String clickablePartText;
     private final String transferMessageWithoutClickablePart;
 
-    public InstanceLifecycleManager(FlexNetProxy proxy, FlexNetGroupManager groupManager, InstanceManager instanceManager,
+    public InstanceLifecycleManager(FlexNetProxy proxy, InstanceManager instanceManager,
                                     FlexNetVelocityInstanceController instanceController, JoinNewCommand joinNewCommand,
                                     FlexNetConfig config) {
         this.proxy = proxy;
-        this.groupManager = groupManager;
         this.instanceManager = instanceManager;
         this.joinNewCommand = joinNewCommand;
         this.instanceController = instanceController;
@@ -76,7 +75,10 @@ public class InstanceLifecycleManager{
 
             future.thenAccept(newServerId -> handleServerClose(serverId, group, newServerId));
         } else {
-
+            // pick a lowest player server as newServerId
+            RegisteredServer newServer = group.getLowestPlayerServer();
+            String newServerId = newServer == null ? null : newServer.getServerInfo().getName();
+            handleServerClose(serverId, group, newServerId);
         }
     }
 

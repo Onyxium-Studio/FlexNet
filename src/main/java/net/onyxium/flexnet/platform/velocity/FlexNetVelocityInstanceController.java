@@ -2,15 +2,17 @@ package net.onyxium.flexnet.platform.velocity;
 
 import com.velocitypowered.api.event.Subscribe;
 import com.velocitypowered.api.event.proxy.ProxyShutdownEvent;
+import com.velocitypowered.api.proxy.server.RegisteredServer;
+import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
 import net.onyxium.flexnet.config.FlexNetConfig;
 import net.onyxium.flexnet.group.FlexNetGroup;
 import net.onyxium.flexnet.group.FlexNetGroupManager;
+import net.onyxium.flexnet.instance.InstanceLifecycleManager;
 import net.onyxium.flexnet.instance.InstanceManager;
 import net.onyxium.flexnet.instance.InstanceRestarter;
 import net.onyxium.flexnet.model.InstanceTemplate;
 import net.onyxium.flexnet.platform.FlexNetProxy;
-import net.onyxium.flexnet.platform.velocity.event.FlexNetVelocityPlayerForwardedEvent;
 import net.onyxium.flexnet.util.TaskUtils;
 
 import java.util.Set;
@@ -25,6 +27,9 @@ public class FlexNetVelocityInstanceController {
     private final FlexNetGroupManager groupManager;
     private final InstanceManager instanceManager;
     private final FlexNetConfig config;
+    @Setter
+    private InstanceLifecycleManager instanceLifecycleManager;
+
     private final Set<String> createdInstanceIdentifiers = new CopyOnWriteArraySet<>();
     private final ConcurrentHashMap<String, CompletableFuture<String>> creatingInstances = new ConcurrentHashMap<>();
 
@@ -32,14 +37,15 @@ public class FlexNetVelocityInstanceController {
             FlexNetProxy proxy,
             FlexNetGroupManager groupManager,
             InstanceManager instanceManager,
-            FlexNetConfig config
+            FlexNetConfig config,
+            InstanceLifecycleManager instanceLifecycleManager
     ) {
         this.proxy = proxy;
         this.groupManager = groupManager;
         this.instanceManager = instanceManager;
         this.config = config;
+        this.instanceLifecycleManager = instanceLifecycleManager;
         createServerOnInit();
-        //createServerCleanupTask();
     }
 
     protected void onServerStop() {
@@ -110,28 +116,6 @@ public class FlexNetVelocityInstanceController {
     }
 
     @Subscribe
-    public void onFlexNetPlayerForward(FlexNetVelocityPlayerForwardedEvent event) {
-        // Skip creating instance if the group is full
-        if (!event.getGroup().canCreateInstance()) {
-            return;
-        }
-
-        // Skip creating instance if player count is not enough
-        if (event.getGroup().getPlayerAmountToCreateInstance() > event.getServer().getPlayersConnected().size()) {
-            return;
-        }
-
-        // Skip creating instance if template not found
-        if (config.getTemplates().containsKey(event.getGroup().getId())) {
-            log.warn("Template {} not found for group {}", event.getGroup().getId(), event.getGroup().getServerName());
-            return;
-        }
-
-        InstanceTemplate template = config.getTemplates().get(event.getGroup().getId());
-        createInstance(template, event.getGroup());
-    }
-
-    @Subscribe
     public void onProxyStop(ProxyShutdownEvent event) {
         onServerStop();
     }
@@ -162,6 +146,44 @@ public class FlexNetVelocityInstanceController {
         });
 
         return future;
+    }
+
+    public void adjustInstanceCountOnPlayerJoin(FlexNetGroup group) {
+        if (!group.canCreateInstance()) {
+            return;
+        }
+        if (!config.getTemplates().containsKey(group.getId())) {
+            log.warn("Template {} not found for group {}", group.getId(), group.getServerName());
+            return;
+        }
+
+        int requiredServers = group.calculateRequiredServers();
+        long totalInstances = group.getValidServerCount();
+
+        for (int i = 0; i < requiredServers - totalInstances; i++) {
+            log.info("requiredServers: {}, totalInstances: {}", requiredServers, totalInstances);
+            log.info("Creating additional instance for group {}", group.getServerName());
+            group.setValidServerCount(group.getValidServerCount() + 1);
+            createInstance(config.getTemplates().get(group.getId()), group);
+        }
+    }
+
+    public void adjustInstanceCountOnPlayerLeave(FlexNetGroup group) {
+        if (!group.needDeleteInstance()) {
+            return;
+        }
+        if (!config.getTemplates().containsKey(group.getId())) {
+            log.warn("Template {} not found for group {}", group.getId(), group.getServerName());
+            return;
+        }
+
+        RegisteredServer lowestPlayerServer = group.getLowestPlayerServer();
+        if (lowestPlayerServer != null) {
+            log.info("Player count is low, deleting server {} from group {}", lowestPlayerServer.getServerInfo().getName(), group.getServerName());
+            String serverId = lowestPlayerServer.getServerInfo().getName();
+            group.setValidServerCount(group.getValidServerCount() - 1);
+            instanceLifecycleManager.handleServerLifecycle(serverId, group, false);
+        }
     }
 }
 

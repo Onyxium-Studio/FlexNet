@@ -2,6 +2,7 @@ package net.onyxium.flexnet.platform.velocity;
 
 import com.velocitypowered.api.event.ResultedEvent;
 import com.velocitypowered.api.event.Subscribe;
+import com.velocitypowered.api.event.connection.DisconnectEvent;
 import com.velocitypowered.api.event.connection.LoginEvent;
 import com.velocitypowered.api.event.player.PlayerChooseInitialServerEvent;
 import com.velocitypowered.api.proxy.Player;
@@ -23,11 +24,15 @@ public class FlexNetVelocityPlayerForwarder {
     private final ProxyServer proxyServer;
     private final LocaleConfig locale;
     private final FlexNetGroupManager groupManager;
+    private final FlexNetVelocityInstanceController instanceController;
 
-    public FlexNetVelocityPlayerForwarder(ProxyServer server, FlexNetGroupManager groupManager, FlexNetConfig config, ProxyServer proxyServer) {
+
+    public FlexNetVelocityPlayerForwarder(ProxyServer server, FlexNetGroupManager groupManager, FlexNetConfig config,
+                                          ProxyServer proxyServer, FlexNetVelocityInstanceController instanceController) {
         this.proxyServer = server;
         this.groupManager = groupManager;
         this.locale = config.getLocale();
+        this.instanceController = instanceController;
     }
 
     @Subscribe
@@ -77,10 +82,11 @@ public class FlexNetVelocityPlayerForwarder {
         if(player.getVirtualHost().isEmpty()) return;
         InetSocketAddress address = player.getVirtualHost().get();
         FlexNetGroup group = groupManager.getGroupFromHost(address.getHostName());
-        RegisteredServer server = group.randomPickServer();
+        RegisteredServer server = group.getLowestPlayerServer();
         event.setInitialServer(server);
 
         proxyServer.getEventManager().fireAndForget(new FlexNetVelocityPlayerForwardedEvent(player, group, server));
+        instanceController.adjustInstanceCountOnPlayerJoin(group);
 
         log.info("Forwarded player {} ({}) to server {}",
                 player.getGameProfile().getName(),
@@ -88,5 +94,18 @@ public class FlexNetVelocityPlayerForwarder {
                 server.getServerInfo().getName()
         );
     }
+
+    @Subscribe
+    public void onPlayerLeave(DisconnectEvent event) {
+        Player player = event.getPlayer();
+        if(player.getVirtualHost().isEmpty()) return; // TODO: maybe handle this case?
+        InetSocketAddress address = player.getVirtualHost().get();
+        FlexNetGroup group = groupManager.getGroupFromHost(address.getHostName());
+
+        if (group != null) {
+            instanceController.adjustInstanceCountOnPlayerLeave(group);
+        }
+    }
+
 
 }

@@ -6,8 +6,8 @@ import lombok.Data;
 public class SingleGroupConfig {
     private String fromHostname;
     private String serverName;
-    private int maxInstance; // TODO
-    private int playerAmountToCreateInstance; // TODO
+    private int maxInstance;
+    private int playerAmountToCreateInstance;
     private String hubServer;
     private int autoRestartInterval;
     private int[] transferWarningIntervals;

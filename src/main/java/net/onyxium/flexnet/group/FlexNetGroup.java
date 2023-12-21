@@ -3,6 +3,7 @@ package net.onyxium.flexnet.group;
 import com.velocitypowered.api.proxy.server.RegisteredServer;
 import lombok.Builder;
 import lombok.Getter;
+import lombok.Setter;
 import net.onyxium.flexnet.instance.InstanceLifecycleManager;
 
 import java.util.*;
@@ -34,6 +35,11 @@ public class FlexNetGroup {
     @Builder.Default
     private transient HashMap<String, RegisteredServer> serverMap = new HashMap<>();
 
+    // TODO: config or something
+    @Setter
+    @Getter
+    private int validServerCount = 1;
+
     public void addServer(String id, RegisteredServer server) {
         serverMap.put(id, server);
     }
@@ -58,7 +64,7 @@ public class FlexNetGroup {
         return serverMap.size();
     }
 
-    public RegisteredServer randomPickServer() {
+    public RegisteredServer getLowestPlayerServer() {
         return serverMap.entrySet().stream()
                 .filter(entry -> !InstanceLifecycleManager.isInstanceInLifecycleProcess(entry.getKey()))
                 .min(Comparator.comparingInt(entry -> entry.getValue().getPlayersConnected().size()))
@@ -66,11 +72,37 @@ public class FlexNetGroup {
                 .orElse(null);
     }
 
+    public int getAllPlayersCount() {
+        return serverMap.values().stream()
+                .filter(Objects::nonNull)
+                .mapToInt(server -> server.getPlayersConnected().size())
+                .sum();
+    }
+
     public boolean canCreateInstance() {
-        return serverMap.size() < maxInstance;
+        long activeServersCount = serverMap.entrySet().stream()
+                .filter(entry -> !InstanceLifecycleManager.isInstanceInLifecycleProcess(entry.getKey()))
+                .count();
+
+        return activeServersCount < maxInstance &&
+                (activeServersCount == 0 || (getAllPlayersCount() / activeServersCount) >= playerAmountToCreateInstance);
+    }
+
+    public boolean needDeleteInstance() {
+        long activeServersCount = serverMap.entrySet().stream()
+                .filter(entry -> !InstanceLifecycleManager.isInstanceInLifecycleProcess(entry.getKey()))
+                .count();
+
+        return activeServersCount > 1 && (getAllPlayersCount() / activeServersCount) < playerAmountToCreateInstance;
+    }
+
+    public int calculateRequiredServers() {
+        return (int) Math.ceil((double) getAllPlayersCount() / playerAmountToCreateInstance);
     }
 
     public boolean canConnect() {
         return !serverMap.isEmpty();
     }
+
+
 }

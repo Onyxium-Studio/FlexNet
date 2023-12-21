@@ -73,19 +73,22 @@ public class FlexNetVelocityPlugin implements FlexNetProxy {
 
         this.instanceManager = new PterodactylInstanceManager(config.getPterodactyl(), this);
         this.groupManager = new FlexNetGroupManager(config);
-        this.instanceController = new FlexNetVelocityInstanceController(this, groupManager, instanceManager, config);
+        this.instanceController = new FlexNetVelocityInstanceController(this, groupManager, instanceManager,
+                config, instanceLifecycleManager);
         this.joinNewCommand = new JoinNewCommand(proxyServer, logger, config, groupManager, playerTargetServerMap);
-        this.instanceLifecycleManager = new InstanceLifecycleManager(this, groupManager, instanceManager,
+        this.instanceLifecycleManager = new InstanceLifecycleManager(this, instanceManager,
                 instanceController, joinNewCommand, config);
         this.instanceRestarter = new InstanceRestarter(this, groupManager, instanceLifecycleManager);
         HubServerListener hubServerListener = new HubServerListener(this, proxyServer, playerTargetServerMap);
 
         proxyServer.getEventManager().register(this,
-                new FlexNetVelocityPlayerForwarder(proxyServer, groupManager, config, proxyServer));
+                new FlexNetVelocityPlayerForwarder(proxyServer, groupManager, config, proxyServer, instanceController));
         proxyServer.getEventManager().register(this, instanceController);
         proxyServer.getCommandManager().register("JoinNew", joinNewCommand);
         proxyServer.getEventManager().register(this, hubServerListener);
 
+        this.instanceLifecycleManager.setInstanceController(instanceController);
+        this.instanceController.setInstanceLifecycleManager(instanceLifecycleManager);
 
         // Check and restart servers every 60 seconds
         restartTask = this.scheduleRepeatTask(instanceRestarter::checkAndRestartServers, 1L, 60L);
