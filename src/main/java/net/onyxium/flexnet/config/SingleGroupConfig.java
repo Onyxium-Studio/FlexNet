@@ -10,6 +10,6 @@ public class SingleGroupConfig {
     private int playerAmountToCreateInstance; // TODO
     private String hubServer;
     private int autoRestartInterval;
-    private int[] restartWarningIntervals;
+    private int[] transferWarningIntervals;
     private int postShutdownWait;
 }

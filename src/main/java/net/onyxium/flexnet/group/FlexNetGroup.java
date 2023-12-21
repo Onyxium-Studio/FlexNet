@@ -3,7 +3,7 @@ package net.onyxium.flexnet.group;
 import com.velocitypowered.api.proxy.server.RegisteredServer;
 import lombok.Builder;
 import lombok.Getter;
-import net.onyxium.flexnet.instance.InstanceRestarter;
+import net.onyxium.flexnet.instance.InstanceLifecycleManager;
 
 import java.util.*;
 
@@ -27,7 +27,7 @@ public class FlexNetGroup {
     @Getter
     private int autoRestartInterval;
     @Getter
-    private int[] restartWarningIntervals;
+    private int[] transferWarningIntervals;
     @Getter
     private int postShutdownWait;
 
@@ -60,7 +60,7 @@ public class FlexNetGroup {
 
     public RegisteredServer randomPickServer() {
         return serverMap.entrySet().stream()
-                .filter(entry -> !InstanceRestarter.isServerRestarting(entry.getKey()))
+                .filter(entry -> !InstanceLifecycleManager.isInstanceInLifecycleProcess(entry.getKey()))
                 .min(Comparator.comparingInt(entry -> entry.getValue().getPlayersConnected().size()))
                 .map(Map.Entry::getValue)
                 .orElse(null);

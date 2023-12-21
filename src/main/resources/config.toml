@@ -9,11 +9,11 @@ invalidHostname = "Invalid hostname"
 failedToConnect = "Connection to the main server could not be established"
 noServerAvailable = "No server available"
 #Use {1}[(click message)] to add a clickable message (must be in the end)
-serverRestartWarning = "Server will restart in {0} seconds. Please move to the new server. {1}[Click here to join!]"
+serverTransferWarning = "Server will restart in {0} seconds. Please move to the new server. {1}[Click here to join!]"
 joinNewCommandUsage = "Usage: /JoinNew <serverId> <groupName>"
 joinNewServerNotFound = "Server not found: {0}"
 joinNewGroupNotFound = "Group not found: {0}"
-joinNewServerRestarting = "You can't join in {0} Server is restarting, "
+joinNewServerRestarting = "You can't join in {0} Server is restarting."
 playerInServerMessage = "You are already in a server ({0})"
 
 [groups]
@@ -26,7 +26,7 @@ playerInServerMessage = "You are already in a server ({0})"
     #Restart every few minutes (->execute restart task and start reminder)
     autoRestartInterval = 1440
     #Reminder of how many seconds until kicking (not included in autoRestartInterval)
-    restartWarningIntervals = [1800, 900, 600, 300, 240, 180, 120, 60, 30, 15, 10, 5, 4, 3, 2, 1]
+    transferWarningIntervals = [1800, 900, 600, 300, 240, 180, 120, 60, 30, 15, 10, 5, 4, 3, 2, 1]#[60, 30, 15, 10, 5, 4, 3, 2, 1]
     #After kicking the player, wait a few minutes before closing the server (not included in autoRestartInterval)
     postShutdownWait = 8
 [groups.survival]
@@ -36,7 +36,7 @@ playerInServerMessage = "You are already in a server ({0})"
     maxInstance = 5
     playerAmountToCreateInstance = 20
     autoRestartInterval = 1440
-    restartWarningIntervals = [1800, 900, 600, 300, 240, 180, 120, 60, 30, 15, 10, 5, 4, 3, 2, 1]
+    transferWarningIntervals = [1800, 900, 600, 300, 240, 180, 120, 60, 30, 15, 10, 5, 4, 3, 2, 1]
     postShutdownWait = 5
 
 [templates]

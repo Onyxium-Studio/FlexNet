@@ -26,7 +26,7 @@ public class FlexNetGroupManager {
                     .serverName(value.getServerName())
                     .hubServer(value.getHubServer())
                     .autoRestartInterval(value.getAutoRestartInterval())
-                    .restartWarningIntervals(value.getRestartWarningIntervals())
+                    .transferWarningIntervals(value.getTransferWarningIntervals())
                     .postShutdownWait(value.getPostShutdownWait())
                     .build();
             groupIdMap.put(key, group);

@@ -1,0 +1,179 @@
+package net.onyxium.flexnet.instance;
+
+import com.velocitypowered.api.proxy.server.RegisteredServer;
+import lombok.extern.slf4j.Slf4j;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.TextComponent;
+import net.kyori.adventure.text.event.ClickEvent;
+import net.kyori.adventure.text.event.HoverEvent;
+import net.kyori.adventure.text.format.TextColor;
+import net.onyxium.flexnet.command.JoinNewCommand;
+import net.onyxium.flexnet.config.FlexNetConfig;
+import net.onyxium.flexnet.config.LocaleConfig;
+import net.onyxium.flexnet.group.FlexNetGroup;
+import net.onyxium.flexnet.group.FlexNetGroupManager;
+import net.onyxium.flexnet.platform.FlexNetProxy;
+import net.onyxium.flexnet.platform.velocity.FlexNetVelocityInstanceController;
+
+import java.text.MessageFormat;
+import java.util.HashMap;
+import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
+@Slf4j
+public class InstanceLifecycleManager{
+    private final FlexNetProxy proxy;
+    private final FlexNetGroupManager groupManager;
+    private final InstanceManager instanceManager;
+    private final FlexNetVelocityInstanceController instanceController;
+    private final JoinNewCommand joinNewCommand;
+    private final FlexNetConfig config;
+
+    private static final HashMap<String, Boolean> instanceInLifecycleProcess = new HashMap<>();
+    // which server is in the process of InstanceLifecycleManager(maybe creating new instance)
+    private static final HashMap<String, Boolean> instanceHandingForLifecycleProcess = new HashMap<>();
+
+    private final String clickablePartText;
+    private final String transferMessageWithoutClickablePart;
+
+    public InstanceLifecycleManager(FlexNetProxy proxy, FlexNetGroupManager groupManager, InstanceManager instanceManager,
+                                    FlexNetVelocityInstanceController instanceController, JoinNewCommand joinNewCommand,
+                                    FlexNetConfig config) {
+        this.proxy = proxy;
+        this.groupManager = groupManager;
+        this.instanceManager = instanceManager;
+        this.joinNewCommand = joinNewCommand;
+        this.instanceController = instanceController;
+        this.config = config;
+        LocaleConfig locale = config.getLocale();
+
+        // preprocess restart message template
+        String restartMessageTemplate = locale.getServerTransferWarning();
+        Matcher matcher = Pattern.compile("\\{1}\\[(.*?)\\]").matcher(restartMessageTemplate);
+        if (matcher.find()) {
+            this.clickablePartText = matcher.group(1);
+        } else {
+            this.clickablePartText = "";
+        }
+
+        this.transferMessageWithoutClickablePart =
+                restartMessageTemplate.replaceFirst("\\{1}\\[.*?\\]", "");
+    }
+
+    public void handleServerLifecycle(String serverId, FlexNetGroup group, boolean createNewInstance) {
+        if (instanceHandingForLifecycleProcess.getOrDefault(serverId, false)) {
+            log.error("instanceLifecycle process for server {} is already in progress", serverId);
+            return;
+        }
+        instanceHandingForLifecycleProcess.put(serverId, true);
+
+        if (createNewInstance) {
+            CompletableFuture<String> future = instanceController.createInstance(
+                    config.getTemplates().get(group.getId()), group);
+
+            future.thenAccept(newServerId -> handleServerClose(serverId, group, newServerId));
+        } else {
+
+        }
+    }
+
+    private void handleServerClose(String serverId, FlexNetGroup group, String newServerId) {
+        instanceInLifecycleProcess.put(serverId, true);
+        scheduleTransferReminders(serverId, group, newServerId);
+
+        long firstWarningTime = group.getTransferWarningIntervals()[0];
+        log.info("Kicking players of server {} in {} seconds", serverId, firstWarningTime);
+
+        CompletableFuture<Void> kickFuture = CompletableFuture.runAsync(() ->
+                        kickPlayersGradually(newServerId, serverId, group),
+                CompletableFuture.delayedExecutor(firstWarningTime, TimeUnit.SECONDS));
+
+        kickFuture.thenRun(() -> deleteServerAfterWait(serverId, group, group.getPostShutdownWait()));
+    }
+
+    private void deleteServerAfterWait(String serverId, FlexNetGroup group, int waitTime) {
+        log.info("Deleting server {} in {} minutes", serverId, waitTime);
+        proxy.scheduleTask(() -> {
+            if (group.getServer(serverId) != null) {
+                instanceController.removeInstanceId(serverId);
+                instanceInLifecycleProcess.remove(serverId);
+                instanceHandingForLifecycleProcess.remove(serverId);
+                InstanceRestarter.removeFromServerUptime(serverId);
+                proxy.removeServer(serverId, group);
+                instanceManager.deleteInstance(serverId, (b) -> {});
+            }
+        }, waitTime * 60L);
+    }
+
+    private void scheduleTransferReminders(String serverId, FlexNetGroup group, String newServerId) {
+        int[] intervals = group.getTransferWarningIntervals();
+        int firstWarningTime = intervals[0];
+
+        for (int interval : intervals) {
+            long delay = firstWarningTime - interval;
+            if (delay >= 0) {
+                proxy.scheduleTask(() -> notifyPlayersOfTransfer(serverId, group, newServerId, interval), delay);
+            }
+        }
+    }
+
+    private void notifyPlayersOfTransfer(String serverId, FlexNetGroup group,
+                                        String newServerId, int leftTime) {
+        RegisteredServer server = group.getServer(serverId);
+        if (server == null) {
+            log.error("Server {} not found for notification", serverId);
+            return;
+        }
+
+        String transferMessageFormatted = MessageFormat.format(this.transferMessageWithoutClickablePart, leftTime);
+
+        TextComponent clickablePart = Component.text(this.clickablePartText)
+                // TODO: will.. need add a option to config to change color and hover text?
+                .color(TextColor.fromHexString("#00A5FF"))
+                .hoverEvent(HoverEvent.showText(Component.text(this.clickablePartText)))
+                .clickEvent(ClickEvent.runCommand("/JoinNew " + newServerId + " " + group.getServerName()));
+        TextComponent finalMessage = Component.text(transferMessageFormatted).append(clickablePart);
+
+        server.getPlayersConnected().forEach(player -> player.sendMessage(finalMessage));
+        log.info("Notified players of server {} transfer in {} seconds", serverId, leftTime);
+    }
+
+    private void kickPlayersGradually(String newServerId, String serverId, FlexNetGroup group) {
+        CompletableFuture<Void> future = new CompletableFuture<>();
+        RegisteredServer server = group.getServer(serverId);
+        String groupName = group.getServerName();
+
+        if (server != null) {
+            kickPlayers(server, newServerId, groupName, future);
+        } else {
+            log.info("Server {} not found for kicking players", serverId);
+            future.complete(null);
+        }
+
+        future.thenRun(() -> log.info("Kicking players done"));
+    }
+
+    private void kickPlayers(RegisteredServer server, String newServerId, String groupName, CompletableFuture<Void> future) {
+        if (!server.getPlayersConnected().isEmpty()) {
+            log.info("Kicking players of server {}", server.getServerInfo().getName());
+
+            server.getPlayersConnected().stream().limit(5).forEach(player -> {
+                UUID playerId = player.getUniqueId();
+                joinNewCommand.redirectPlayerToTargetServer(playerId, newServerId, groupName, player);
+            });
+
+            proxy.scheduleTask(() -> kickPlayers(server, newServerId, groupName, future), 3);
+        } else {
+            future.complete(null);
+        }
+    }
+
+    public static boolean isInstanceInLifecycleProcess(String serverId) {
+        return instanceInLifecycleProcess.getOrDefault(serverId, false);
+    }
+
+}
+

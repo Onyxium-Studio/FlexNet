@@ -15,6 +15,7 @@ import net.onyxium.flexnet.command.JoinNewCommand;
 import net.onyxium.flexnet.config.FlexNetConfig;
 import net.onyxium.flexnet.group.FlexNetGroup;
 import net.onyxium.flexnet.group.FlexNetGroupManager;
+import net.onyxium.flexnet.instance.InstanceLifecycleManager;
 import net.onyxium.flexnet.instance.InstanceManager;
 import net.onyxium.flexnet.instance.InstanceRestarter;
 import net.onyxium.flexnet.instance.pterodactyl.PterodactylInstanceManager;
@@ -52,6 +53,7 @@ public class FlexNetVelocityPlugin implements FlexNetProxy {
     private FlexNetGroupManager groupManager;
     private InstanceRestarter instanceRestarter;
     private JoinNewCommand joinNewCommand;
+    private InstanceLifecycleManager instanceLifecycleManager;
     private final Map<UUID, String> playerTargetServerMap = new ConcurrentHashMap<>();
 
     public static ScheduledTask restartTask;
@@ -73,8 +75,9 @@ public class FlexNetVelocityPlugin implements FlexNetProxy {
         this.groupManager = new FlexNetGroupManager(config);
         this.instanceController = new FlexNetVelocityInstanceController(this, groupManager, instanceManager, config);
         this.joinNewCommand = new JoinNewCommand(proxyServer, logger, config, groupManager, playerTargetServerMap);
-        this.instanceRestarter = new InstanceRestarter(this, groupManager, instanceManager, instanceController,
-                config, joinNewCommand);
+        this.instanceLifecycleManager = new InstanceLifecycleManager(this, groupManager, instanceManager,
+                instanceController, joinNewCommand, config);
+        this.instanceRestarter = new InstanceRestarter(this, groupManager, instanceLifecycleManager);
         HubServerListener hubServerListener = new HubServerListener(this, proxyServer, playerTargetServerMap);
 
         proxyServer.getEventManager().register(this,

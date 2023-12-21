@@ -7,7 +7,7 @@ import net.kyori.adventure.text.Component;
 import net.onyxium.flexnet.config.FlexNetConfig;
 import net.onyxium.flexnet.config.LocaleConfig;
 import net.onyxium.flexnet.group.FlexNetGroupManager;
-import net.onyxium.flexnet.instance.InstanceRestarter;
+import net.onyxium.flexnet.instance.InstanceLifecycleManager;
 import org.slf4j.Logger;
 
 import java.text.MessageFormat;
@@ -65,7 +65,7 @@ public class JoinNewCommand implements SimpleCommand {
             return;
         }
 
-        if (InstanceRestarter.isServerRestarting(targetServerId)) {
+        if (InstanceLifecycleManager.isInstanceInLifecycleProcess(targetServerId)) {
             player.sendMessage(Component.text(MessageFormat.format(serverRestartingMessage, targetServerId)));
             return;
         }
