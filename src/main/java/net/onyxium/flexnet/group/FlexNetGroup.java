@@ -38,6 +38,7 @@ public class FlexNetGroup {
     // TODO: config or something
     @Setter
     @Getter
+    @Builder.Default
     private int validServerCount = 1;
 
     public void addServer(String id, RegisteredServer server) {
