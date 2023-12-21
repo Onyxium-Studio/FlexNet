@@ -32,6 +32,7 @@ public class FlexNetVelocityInstanceController {
 
     private final Set<String> createdInstanceIdentifiers = new CopyOnWriteArraySet<>();
     private final ConcurrentHashMap<String, CompletableFuture<String>> creatingInstances = new ConcurrentHashMap<>();
+    private boolean shouldStopProcessingFlag = false;
 
     public FlexNetVelocityInstanceController(
             FlexNetProxy proxy,
@@ -169,20 +170,32 @@ public class FlexNetVelocityInstanceController {
     }
 
     public void adjustInstanceCountOnPlayerLeave(FlexNetGroup group) {
-        if (!group.needDeleteInstance()) {
-            return;
-        }
-        if (!config.getTemplates().containsKey(group.getId())) {
-            log.warn("Template {} not found for group {}", group.getId(), group.getServerName());
+        if (shouldStopProcessingFlag || !group.needDeleteInstance() || !config.getTemplates().containsKey(group.getId())) {
+            if (!config.getTemplates().containsKey(group.getId())) {
+                log.warn("Template {} not found for group {}", group.getId(), group.getServerName());
+            }
             return;
         }
 
-        RegisteredServer lowestPlayerServer = group.getLowestPlayerServer();
-        if (lowestPlayerServer != null) {
-            log.info("Player count is low, deleting server {} from group {}", lowestPlayerServer.getServerInfo().getName(), group.getServerName());
-            String serverId = lowestPlayerServer.getServerInfo().getName();
-            group.setValidServerCount(group.getValidServerCount() - 1);
-            instanceLifecycleManager.handleServerLifecycle(serverId, group, false);
+        shouldStopProcessingFlag = true;
+        int idealServerCount = (int) Math.ceil((double) group.getAllPlayersCount() / group.getPlayerAmountToCreateInstance());
+        proxy.scheduleTask(() -> {
+            if (group.needDeleteInstance()) {
+                int serversToRemove = group.getValidServerCount() - idealServerCount;
+                removeExtraServers(group, serversToRemove);
+                shouldStopProcessingFlag = false;
+            }}, 5 * 60);
+    }
+
+    private void removeExtraServers(FlexNetGroup group, int serversToRemove) {
+        for (int i = 0; i < serversToRemove; i++) {
+            RegisteredServer serverToRemove = group.getLowestPlayerServer();
+            if (serverToRemove != null) {
+                String serverId = serverToRemove.getServerInfo().getName();
+                log.info("Removing server {} from group {} due to low player count", serverId, group.getServerName());
+                group.setValidServerCount(group.getValidServerCount() - 1);
+                instanceLifecycleManager.handleServerLifecycle(serverId, group, false);
+            }
         }
     }
 }
