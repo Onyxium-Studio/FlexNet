@@ -32,13 +32,29 @@ public class HubServerListener {
         if (targetServerId != null) {
             proxyServer.getServer(targetServerId).ifPresent(targetServer -> {
                 if (!targetServer.getServerInfo().equals(event.getServer().getServerInfo())) {
-                    proxy.scheduleTask(() -> {
-                        log.info("Redirecting player {} to server {}", player.getUsername(), targetServerId);
-                        player.createConnectionRequest(targetServer).fireAndForget();
-                    },  150, true); // TODO: delay 0.15 is enough for all cases?
+                    retryRedirect(player, targetServerId, 0);
                 }
-                playerTargetServerMap.remove(playerId);
             });
         }
+    }
+
+    private void retryRedirect(Player player, String targetServerId, int attempts) {
+        if (attempts >= 3) {
+            log.error("Failed to redirect player {} to server {} after {} attempts", player.getUsername(), targetServerId, attempts);
+            playerTargetServerMap.remove(player.getUniqueId());
+            return;
+        }
+
+        proxy.scheduleTask(() -> {
+            if (player.getCurrentServer().isEmpty() || !player.getCurrentServer().get().getServerInfo().getName().equals(targetServerId)) {
+                log.info("Redirecting player {} to server {}, attempt {}", player.getUsername(), targetServerId, attempts + 1);
+                proxyServer.getServer(targetServerId).ifPresent(
+                        server -> player.createConnectionRequest(server).fireAndForget()
+                );
+                retryRedirect(player, targetServerId, attempts + 1);
+            } else {
+                playerTargetServerMap.remove(player.getUniqueId());
+            }
+        }, 150 + attempts * 300L, true);
     }
 }
