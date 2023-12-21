@@ -174,7 +174,8 @@ public class InstanceLifecycleManager{
     }
 
     public static boolean isInstanceInLifecycleProcess(String serverId) {
-        return instanceInLifecycleProcess.getOrDefault(serverId, false);
+        return instanceInLifecycleProcess.getOrDefault(serverId, false) ||
+                instanceHandingForLifecycleProcess.getOrDefault(serverId, false);
     }
 
 }
