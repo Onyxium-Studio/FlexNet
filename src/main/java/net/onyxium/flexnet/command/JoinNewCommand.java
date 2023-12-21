@@ -76,15 +76,12 @@ public class JoinNewCommand implements SimpleCommand {
             return;
         }
 
-        redirectPlayerToTargetServer(player.getUniqueId(), targetServerId, groupName, player);
+        redirectPlayerToTargetServer(player.getUniqueId(), targetServerId, groupName, player, true);
     }
 
-    public void redirectPlayerToTargetServer(UUID playerId, String targetServerId, String groupName, Player player) {
+    public void redirectPlayerToTargetServer(UUID playerId, String targetServerId, String groupName, Player player, boolean canRedirectOtherServer) {
         FlexNetGroup group = groupManager.getGroup(groupName);
 
-        if (targetServerId.equals("lowest_instance")) {
-            targetServerId = group.getLowestPlayerServer().getServerInfo().getName();
-        }
         if (proxyServer.getServer(targetServerId).get().getPlayersConnected().size() > group.getPlayerAmountToCreateInstance() - 6) {
             targetServerId = group.getLowestPlayerServer().getServerInfo().getName();
         }

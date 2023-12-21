@@ -164,7 +164,7 @@ public class InstanceLifecycleManager{
 
             server.getPlayersConnected().stream().limit(5).forEach(player -> {
                 UUID playerId = player.getUniqueId();
-                joinNewCommand.redirectPlayerToTargetServer(playerId, newServerId, groupName, player);
+                joinNewCommand.redirectPlayerToTargetServer(playerId, newServerId, groupName, player, true);
             });
 
             proxy.scheduleTask(() -> kickPlayers(server, newServerId, groupName, future), 3);
